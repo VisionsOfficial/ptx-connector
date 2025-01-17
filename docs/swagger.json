@@ -2,10 +2,535 @@
   "openapi": "3.0.0",
   "info": {
     "title": "ptx-dataspace-connector",
-    "version": "1.8.0",
+    "version": "1.9.0",
     "description": "Prometheus-X Data Space Connector"
   },
   "paths": {
+    "/login": {
+      "post": {
+        "summary": "Login to use private routes",
+        "tags": [
+          "Authentication"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "secretKey": {
+                    "description": "PTX secret Key",
+                    "type": "string"
+                  },
+                  "serviceKey": {
+                    "description": "PTX service Key",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "timestamp": {
+                      "type": "string",
+                      "description": "timestamp of the response",
+                      "example": 1709025673657
+                    },
+                    "code": {
+                      "type": "integer",
+                      "description": "http code of the response",
+                      "example": 200
+                    },
+                    "content": {
+                      "type": "object",
+                      "properties": {
+                        "token": {
+                          "type": "string",
+                          "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzZXJ2aWNlS2V5IjoiMXRBVGlLN0UzQTFIM2Rfd0lpVVhPdExDS2tXWlpLQV9wMlgwZ3drRG1GeHBmQ0Y0STNJc2xyZG1rUERfMzhhVFRyQXpJUVVMaXhVV2NCSWxCRnlCY3lVOHN4RFJVWk1YX09UYyIsImlhdCI6MTcwOTAyNTY3MzY1NCwiZXhwIjoxNzA5MDI1NjczOTU0fQ.WI2KCtxOvnoffBgB5QSYL5ClDLblKORAcYb5SQR-Nqw"
+                        },
+                        "refreshToken": {
+                          "type": "string",
+                          "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzZXJ2aWNlS2V5IjoiMXRBVGlLN0UzQTFIM2Rfd0lpVVhPdExDS2tXWlpLQV9wMlgwZ3drRG1GeHBmQ0Y0STNJc2xyZG1rUERfMzhhVFRyQXpJUVVMaXhVV2NCSWxCRnlCY3lVOHN4RFJVWk1YX09UYyIsImlhdCI6MTcwOTAyNTY3MzY1NiwiZXhwIjoxNzA5MDI1NjczOTU2fQ.0SR4p7cXlFwK45rky0TnI9kZhvyJJVezUYO4s9Mv03o"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "path": {
+                      "type": "string",
+                      "description": "routes path",
+                      "example": "/login"
+                    },
+                    "statusCode": {
+                      "type": "integer",
+                      "description": "http code of the response",
+                      "example": 404
+                    },
+                    "error": {
+                      "type": "string",
+                      "description": "error type",
+                      "example": "resource not found"
+                    },
+                    "success": {
+                      "type": "boolean",
+                      "description": "status of the reponses",
+                      "example": false
+                    },
+                    "statusText": {
+                      "type": "string",
+                      "example": "Not found"
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "message of the error",
+                      "example": "Wrong credentials"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/consent/export": {
+      "post": {
+        "summary": "export consent",
+        "tags": [
+          "Consent"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "signedConsent": {
+                    "description": "signed consent",
+                    "type": "string"
+                  },
+                  "encrypted": {
+                    "description": "encrypted key",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
+    "/consent/import": {
+      "post": {
+        "summary": "import consent",
+        "tags": [
+          "Consent"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "signedConsent": {
+                    "description": "signed consent",
+                    "type": "string"
+                  },
+                  "dataProviderEndpoint": {
+                    "description": "export url",
+                    "type": "string"
+                  },
+                  "encrypted": {
+                    "description": "AES key",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
+    "/consumer/exchange": {
+      "post": {
+        "summary": "Trigger data exchange between two connector",
+        "tags": [
+          "Consumer"
+        ],
+        "security": [
+          {
+            "jwt": []
+          }
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "requestBody": {
+          "200": {
+            "description": "Successful response"
+          },
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "contract": {
+                    "description": "Contract self-description",
+                    "type": "string",
+                    "required": true,
+                    "example": "https://contract.com/contracts/id"
+                  },
+                  "purposeId": {
+                    "description": "consumer service offering URI",
+                    "type": "string",
+                    "required": false,
+                    "example": "https://catalog.api.com/v1/catalog/serviceofferings/id"
+                  },
+                  "resourceId": {
+                    "description": "provider service offering URI",
+                    "type": "string",
+                    "required": false,
+                    "example": "https://catalog.api.com/v1/catalog/serviceofferings/id"
+                  },
+                  "dataProcessingId": {
+                    "description": "id of the selected data processing chains in the contract",
+                    "type": "string",
+                    "required": false,
+                    "example": "670e8eb6b439a2379f290fc6"
+                  },
+                  "resources": {
+                    "description": "array of provider data resource URI",
+                    "type": "array",
+                    "required": false,
+                    "example": [
+                      {
+                        "resource": "https://catalog.api.com/v1/catalog/dataresources/id",
+                        "params": {
+                          "query": [
+                            {
+                              "page": 0
+                            },
+                            {
+                              "limit": 10
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  "providerParams": {
+                    "description": "object of query params",
+                    "type": "object",
+                    "required": false,
+                    "example": {
+                      "query": [
+                        {
+                          "page": 0
+                        },
+                        {
+                          "limit": 10
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/consumer/import": {
+      "post": {
+        "summary": "Endpoint to import data",
+        "tags": [
+          "Consumer"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "requestBody": {
+          "content": {
+            "200": {
+              "description": "Successful response"
+            },
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "dataExchangeId": {
+                    "description": "data exchange id",
+                    "type": "string"
+                  },
+                  "data": {
+                    "description": "data",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/data/export": {
+      "post": {
+        "summary": "export data",
+        "tags": [
+          "Data"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "signedConsent": {
+                    "description": "signed consent",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
+    "/data/import": {
+      "post": {
+        "summary": "import data",
+        "tags": [
+          "Data"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "signedConsent": {
+                    "description": "signed consent",
+                    "type": "string"
+                  },
+                  "user": {
+                    "description": "user",
+                    "type": "string"
+                  },
+                  "data": {
+                    "description": "data",
+                    "type": "string"
+                  },
+                  "encrypted": {
+                    "description": "AES key",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
+    "/dataexchanges/": {
+      "get": {
+        "summary": "Get all data exchange",
+        "tags": [
+          "Data-Exchange"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
+    "/dataexchanges/{id}": {
+      "get": {
+        "summary": "Get data exchange by id",
+        "tags": [
+          "Data-Exchange"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "description": "data exchange id.",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
+    "/": {
+      "get": {
+        "summary": "Get Data space Connector Self Description",
+        "tags": [
+          "Self-Description"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
+    "/provider/export": {
+      "post": {
+        "summary": "Provider exchange webhook",
+        "tags": [
+          "Provider"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "dataExchangeId": {
+                    "description": "data exchange id",
+                    "type": "string"
+                  },
+                  "consumerEndpoint": {
+                    "description": "Consumer self-description",
+                    "type": "string"
+                  },
+                  "contract": {
+                    "description": "contract self-description",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
+    "/provider/import": {
+      "post": {
+        "summary": "Provider import webhook",
+        "tags": [
+          "Provider"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "description": "data to import",
+                    "type": "string"
+                  },
+                  "dataExchange": {
+                    "description": "dataExchange",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
+    "/users/template": {
+      "post": {
+        "summary": "Get the default csv file",
+        "tags": [
+          "Users"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
     "/private/catalogs/": {
       "get": {
         "summary": "Get Data space Connector catalog",
@@ -1431,28 +1956,33 @@
         }
       }
     },
-    "/login": {
+    "/catalog/request": {
       "post": {
-        "summary": "Login to use private routes",
+        "summary": "Handle catalog request",
         "tags": [
-          "Authentication"
-        ],
-        "produces": [
-          "application/json"
+          "DSP Catalog"
         ],
         "requestBody": {
+          "description": "Catalog request message body",
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
                 "properties": {
-                  "secretKey": {
-                    "description": "PTX secret Key",
-                    "type": "string"
+                  "@context": {
+                    "description": "The context of the message",
+                    "type": "string",
+                    "example": "https://w3id.org/dspace/2024/1/context.json"
                   },
-                  "serviceKey": {
-                    "description": "PTX service Key",
-                    "type": "string"
+                  "@type": {
+                    "description": "The type of the message",
+                    "type": "string",
+                    "example": "dspace:CatalogRequestMessage"
+                  },
+                  "dspace:filter": {
+                    "description": "The filter for the catalog request",
+                    "type": "object"
                   }
                 }
               }
@@ -1461,34 +1991,52 @@
         },
         "responses": {
           "200": {
-            "description": "Successful response",
+            "description": "Catalog request successfully handled",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "timestamp": {
-                      "type": "string",
-                      "description": "timestamp of the response",
-                      "example": 1709025673657
-                    },
-                    "code": {
-                      "type": "integer",
-                      "description": "http code of the response",
-                      "example": 200
-                    },
-                    "content": {
-                      "type": "object",
-                      "properties": {
-                        "token": {
-                          "type": "string",
-                          "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzZXJ2aWNlS2V5IjoiMXRBVGlLN0UzQTFIM2Rfd0lpVVhPdExDS2tXWlpLQV9wMlgwZ3drRG1GeHBmQ0Y0STNJc2xyZG1rUERfMzhhVFRyQXpJUVVMaXhVV2NCSWxCRnlCY3lVOHN4RFJVWk1YX09UYyIsImlhdCI6MTcwOTAyNTY3MzY1NCwiZXhwIjoxNzA5MDI1NjczOTU0fQ.WI2KCtxOvnoffBgB5QSYL5ClDLblKORAcYb5SQR-Nqw"
-                        },
-                        "refreshToken": {
-                          "type": "string",
-                          "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzZXJ2aWNlS2V5IjoiMXRBVGlLN0UzQTFIM2Rfd0lpVVhPdExDS2tXWlpLQV9wMlgwZ3drRG1GeHBmQ0Y0STNJc2xyZG1rUERfMzhhVFRyQXpJUVVMaXhVV2NCSWxCRnlCY3lVOHN4RFJVWk1YX09UYyIsImlhdCI6MTcwOTAyNTY3MzY1NiwiZXhwIjoxNzA5MDI1NjczOTU2fQ.0SR4p7cXlFwK45rky0TnI9kZhvyJJVezUYO4s9Mv03o"
-                        }
-                      }
+                    "catalog": {
+                      "description": "The catalog response",
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/catalog/datasets/{id}": {
+      "get": {
+        "summary": "Get dataset by ID",
+        "tags": [
+          "DSP Catalog"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "description": "The ID of the dataset",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dataset found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "dataset": {
+                      "description": "The dataset",
+                      "type": "object"
                     }
                   }
                 }
@@ -1496,203 +2044,31 @@
             }
           },
           "404": {
-            "description": "Error response",
+            "description": "Dataset not found",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "path": {
-                      "type": "string",
-                      "description": "routes path",
-                      "example": "/login"
-                    },
-                    "statusCode": {
-                      "type": "integer",
-                      "description": "http code of the response",
-                      "example": 404
-                    },
-                    "error": {
-                      "type": "string",
-                      "description": "error type",
-                      "example": "resource not found"
-                    },
-                    "success": {
-                      "type": "boolean",
-                      "description": "status of the reponses",
-                      "example": false
-                    },
-                    "statusText": {
-                      "type": "string",
-                      "example": "Not found"
-                    },
                     "message": {
-                      "type": "string",
-                      "description": "message of the error",
-                      "example": "Wrong credentials"
+                      "description": "Error message",
+                      "type": "string"
                     }
                   }
                 }
               }
             }
-          }
-        }
-      }
-    },
-    "/consent/export": {
-      "post": {
-        "summary": "export consent",
-        "tags": [
-          "Consent"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "signedConsent": {
-                    "description": "signed consent",
-                    "type": "string"
-                  },
-                  "encrypted": {
-                    "description": "encrypted key",
-                    "type": "string"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful response"
-          }
-        }
-      }
-    },
-    "/consent/import": {
-      "post": {
-        "summary": "import consent",
-        "tags": [
-          "Consent"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "signedConsent": {
-                    "description": "signed consent",
-                    "type": "string"
-                  },
-                  "dataProviderEndpoint": {
-                    "description": "export url",
-                    "type": "string"
-                  },
-                  "encrypted": {
-                    "description": "AES key",
-                    "type": "string"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful response"
-          }
-        }
-      }
-    },
-    "/consumer/exchange": {
-      "post": {
-        "summary": "Trigger data exchange between two connector",
-        "tags": [
-          "Consumer"
-        ],
-        "security": [
-          {
-            "jwt": []
-          }
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "requestBody": {
-          "200": {
-            "description": "Successful response"
           },
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "contract": {
-                    "description": "Contract self-description",
-                    "type": "string",
-                    "required": true,
-                    "example": "https://contract.com/contracts/id"
-                  },
-                  "purposeId": {
-                    "description": "consumer service offering URI",
-                    "type": "string",
-                    "required": false,
-                    "example": "https://catalog.api.com/v1/catalog/serviceofferings/id"
-                  },
-                  "resourceId": {
-                    "description": "provider service offering URI",
-                    "type": "string",
-                    "required": false,
-                    "example": "https://catalog.api.com/v1/catalog/serviceofferings/id"
-                  },
-                  "dataProcessingId": {
-                    "description": "id of the selected data processing chains in the contract",
-                    "type": "string",
-                    "required": false,
-                    "example": "670e8eb6b439a2379f290fc6"
-                  },
-                  "resources": {
-                    "description": "array of provider data resource URI",
-                    "type": "array",
-                    "required": false,
-                    "example": [
-                      {
-                        "resource": "https://catalog.api.com/v1/catalog/dataresources/id",
-                        "params": {
-                          "query": [
-                            {
-                              "page": 0
-                            },
-                            {
-                              "limit": 10
-                            }
-                          ]
-                        }
-                      }
-                    ]
-                  },
-                  "providerParams": {
-                    "description": "object of query params",
-                    "type": "object",
-                    "required": false,
-                    "example": {
-                      "query": [
-                        {
-                          "page": 0
-                        },
-                        {
-                          "limit": 10
-                        }
-                      ]
+          "500": {
+            "description": "Dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "description": "Error message",
+                      "type": "string"
                     }
                   }
                 }
@@ -1702,195 +2078,1398 @@
         }
       }
     },
-    "/consumer/import": {
-      "post": {
-        "summary": "Endpoint to import data",
-        "tags": [
-          "Consumer"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "requestBody": {
-          "content": {
-            "200": {
-              "description": "Successful response"
-            },
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "dataExchangeId": {
-                    "description": "data exchange id",
-                    "type": "string"
-                  },
-                  "data": {
-                    "description": "data",
-                    "type": "string"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/data/export": {
-      "post": {
-        "summary": "export data",
-        "tags": [
-          "Data"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "signedConsent": {
-                    "description": "signed consent",
-                    "type": "string"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful response"
-          }
-        }
-      }
-    },
-    "/data/import": {
-      "post": {
-        "summary": "import data",
-        "tags": [
-          "Data"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "signedConsent": {
-                    "description": "signed consent",
-                    "type": "string"
-                  },
-                  "user": {
-                    "description": "user",
-                    "type": "string"
-                  },
-                  "data": {
-                    "description": "data",
-                    "type": "string"
-                  },
-                  "encrypted": {
-                    "description": "AES key",
-                    "type": "string"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful response"
-          }
-        }
-      }
-    },
-    "/dataexchanges/": {
+    "/negotiations/{providerPid}": {
       "get": {
-        "summary": "Get all data exchange",
+        "summary": "Retrieve contract negotiation details",
         "tags": [
-          "Data-Exchange"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful response"
-          }
-        }
-      }
-    },
-    "/dataexchanges/{id}": {
-      "get": {
-        "summary": "Get data exchange by id",
-        "tags": [
-          "Data-Exchange"
+          "DSP Contract Negotiation"
         ],
         "produces": [
           "application/json"
         ],
         "parameters": [
           {
-            "name": "id",
-            "description": "data exchange id.",
             "in": "path",
+            "name": "providerPid",
+            "description": "Provider's PID",
             "required": true,
-            "type": "string"
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
           "200": {
-            "description": "Successful response"
+            "description": "Contract negotiation details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "@context": {
+                      "description": "The context of the message",
+                      "type": "string",
+                      "example": "https://w3id.org/dspace/2024/1/context.json"
+                    },
+                    "@type": {
+                      "description": "The type of the message",
+                      "type": "string",
+                      "example": "dspace:ContractNegotiation"
+                    },
+                    "dspace:providerPid": {
+                      "description": "The PID of the provider",
+                      "type": "string",
+                      "example": "urn:uuid:dcbf434c-eacf-4582-9a02-f8dd50120fd3"
+                    },
+                    "dspace:consumerPid": {
+                      "description": "The PID of the consumer",
+                      "type": "string",
+                      "example": "urn:uuid:32541fe6-c580-409e-85a8-8a9a32fbe833"
+                    },
+                    "dspace:state": {
+                      "description": "The state of the contract negotiation",
+                      "type": "string",
+                      "example": "REQUESTED"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
     },
-    "/": {
+    "/negotiations/request": {
+      "post": {
+        "summary": "Handle contract negotiation request",
+        "tags": [
+          "DSP Contract Negotiation"
+        ],
+        "consumes": [
+          "application/json"
+        ],
+        "requestBody": {
+          "description": "Contract negotiation request body",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "@context": {
+                    "description": "The context of the message",
+                    "type": "string"
+                  },
+                  "@type": {
+                    "description": "The type of the message",
+                    "type": "string"
+                  },
+                  "dspace:offer": {
+                    "description": "The offer being made",
+                    "type": "object"
+                  },
+                  "dspace:callbackAddress": {
+                    "description": "The callback address for the consumer",
+                    "type": "string"
+                  },
+                  "dspace:consumerPid": {
+                    "description": "The PID of the consumer",
+                    "type": "string"
+                  },
+                  "dspace:providerPid": {
+                    "description": "The PID of the provider",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Contract negotiation request successfully handled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "@context": {
+                      "description": "The context of the message",
+                      "type": "string",
+                      "example": "https://w3id.org/dspace/2024/1/context.json"
+                    },
+                    "@type": {
+                      "description": "The type of the message",
+                      "type": "string",
+                      "example": "dspace:ContractNegotiation"
+                    },
+                    "dspace:providerPid": {
+                      "description": "The PID of the provider",
+                      "type": "string",
+                      "example": "urn:uuid:dcbf434c-eacf-4582-9a02-f8dd50120fd3"
+                    },
+                    "dspace:consumerPid": {
+                      "description": "The PID of the consumer",
+                      "type": "string",
+                      "example": "urn:uuid:32541fe6-c580-409e-85a8-8a9a32fbe833"
+                    },
+                    "dspace:state": {
+                      "description": "The state of the contract negotiation",
+                      "type": "string",
+                      "example": "REQUESTED"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid contract negotiation request format",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "description": "Error message",
+                      "type": "string"
+                    },
+                    "payload": {
+                      "description": "The invalid payload",
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/negotiations/{providerPid}/request": {
+      "post": {
+        "summary": "Initiates a contract negotiation with a consumer.",
+        "description": "This endpoint is used by a provider to initiate a contract negotiation with a consumer.",
+        "tags": [
+          "DSP Contract Negotiation"
+        ],
+        "consumes": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "providerPid",
+            "description": "The PID of the provider.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Contract negotiation request body",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "@context": {
+                    "description": "The context of the message",
+                    "type": "string"
+                  },
+                  "@type": {
+                    "description": "The type of the message",
+                    "type": "string"
+                  },
+                  "dspace:offer": {
+                    "description": "The offer being made",
+                    "type": "object"
+                  },
+                  "dspace:callbackAddress": {
+                    "description": "The callback address for the consumer",
+                    "type": "string"
+                  },
+                  "dspace:consumerPid": {
+                    "description": "The PID of the consumer",
+                    "type": "string"
+                  },
+                  "dspace:providerPid": {
+                    "description": "The PID of the provider",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Contract negotiation request successfully handled.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "description": "Success message.",
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid contract negotiation request format.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "description": "Error message.",
+                      "type": "string"
+                    },
+                    "payload": {
+                      "description": "The invalid payload.",
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/negotiations/{providerPid}/events": {
+      "post": {
+        "summary": "Handles a ContractNegotiationEventMessage from a consumer.",
+        "description": "This endpoint processes a ContractNegotiationEventMessage sent by a consumer to accept the Provider's Offer.",
+        "tags": [
+          "DSP Contract Negotiation"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "providerPid",
+            "description": "The PID of the provider.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "The ContractNegotiationEventMessage body.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "@context": {
+                    "description": "The context of the message",
+                    "type": "string"
+                  },
+                  "@type": {
+                    "description": "The type of the message",
+                    "type": "string"
+                  },
+                  "dspace:callbackAddress": {
+                    "description": "The callback address for the consumer",
+                    "type": "string"
+                  },
+                  "dspace:consumerPid": {
+                    "description": "The PID of the consumer",
+                    "type": "string"
+                  },
+                  "dspace:providerPid": {
+                    "description": "The PID of the provider",
+                    "type": "string"
+                  },
+                  "dspace:eventType": {
+                    "description": "The type of event.",
+                    "type": "string",
+                    "enum": [
+                      "dspace:ACCEPTED",
+                      "dspace:FINALIZED"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Contract negotiation event successfully handled.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "description": "Success message.",
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid contract negotiation event format.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "description": "Error message.",
+                      "type": "string"
+                    },
+                    "payload": {
+                      "description": "The invalid payload.",
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/negotiations/{providerPid}/agreement/verification": {
+      "post": {
+        "summary": "Verify contract agreement",
+        "description": "Handles the reception of a ContractAgreementVerificationMessage sent by a consumer to verify the acceptance of an Agreement.",
+        "tags": [
+          "DSP Contract Negotiation"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "providerPid",
+            "description": "The PID of the provider.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "The ContractAgreementVerificationMessage body.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "@context": {
+                    "description": "The context of the message.",
+                    "type": "string"
+                  },
+                  "@type": {
+                    "description": "The type of the message.",
+                    "type": "string"
+                  },
+                  "dspace:providerPid": {
+                    "description": "The PID of the provider.",
+                    "type": "string"
+                  },
+                  "dspace:consumerPid": {
+                    "description": "The PID of the consumer.",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Contract agreement verification successfully handled.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "description": "Success message.",
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid contract agreement verification format.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "description": "Error message.",
+                      "type": "string"
+                    },
+                    "payload": {
+                      "description": "The invalid payload.",
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/negotiations/{providerPid}/termination": {
+      "post": {
+        "summary": "Terminates a contract negotiation.",
+        "description": "This endpoint is used to terminate a contract negotiation. It requires the providerPid as a path parameter.",
+        "tags": [
+          "DSP Contract Negotiation"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "providerPid",
+            "description": "The PID of the provider.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "The termination request body.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "@context": {
+                    "description": "The context of the message.",
+                    "type": "string",
+                    "example": "https://w3id.org/dspace/2024/1/context.json"
+                  },
+                  "@type": {
+                    "description": "The type of the message.",
+                    "type": "string",
+                    "example": "dspace:ContractNegotiationTerminationMessage"
+                  },
+                  "dspace:providerPid": {
+                    "description": "The PID of the provider.",
+                    "type": "string"
+                  },
+                  "dspace:consumerPid": {
+                    "description": "The PID of the consumer.",
+                    "type": "string"
+                  },
+                  "dspace:code": {
+                    "description": "The code for the termination.",
+                    "type": "string",
+                    "example": "TERMINATION_CODE"
+                  },
+                  "dspace:reason": {
+                    "description": "The reason for the termination.",
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "example": [
+                      "REASON_1",
+                      "REASON_2"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Contract negotiation termination successfully handled.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "description": "Success message.",
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid termination request format.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "description": "Error message.",
+                      "type": "string"
+                    },
+                    "payload": {
+                      "description": "The invalid payload.",
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/negotiations/offers": {
+      "post": {
+        "summary": "Handle contract negotiation offer",
+        "tags": [
+          "DSP Contract Negotiation"
+        ],
+        "consumes": [
+          "application/json"
+        ],
+        "requestBody": {
+          "description": "Contract negotiation offer body",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "@context": {
+                    "description": "The context of the message",
+                    "type": "string"
+                  },
+                  "@type": {
+                    "description": "The type of the message",
+                    "type": "string"
+                  },
+                  "dspace:providerPid": {
+                    "description": "The PID of the provider",
+                    "type": "string"
+                  },
+                  "dspace:consumerPid": {
+                    "description": "The PID of the consumer",
+                    "type": "string"
+                  },
+                  "dspace:offer": {
+                    "description": "The offer being made",
+                    "type": "object"
+                  },
+                  "dspace:callbackAddress": {
+                    "description": "The callback address for the consumer",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Contract negotiation offer successfully handled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "@context": {
+                      "description": "The context of the message",
+                      "type": "string",
+                      "example": "https://w3id.org/dspace/2024/1/context.json"
+                    },
+                    "@type": {
+                      "description": "The type of the message",
+                      "type": "string",
+                      "example": "dspace:ContractNegotiation"
+                    },
+                    "dspace:providerPid": {
+                      "description": "The PID of the provider",
+                      "type": "string",
+                      "example": "urn:uuid:dcbf434c-eacf-4582-9a02-f8dd50120fd3"
+                    },
+                    "dspace:consumerPid": {
+                      "description": "The PID of the consumer",
+                      "type": "string",
+                      "example": "urn:uuid:32541fe6-c580-409e-85a8-8a9a32fbe833"
+                    },
+                    "dspace:state": {
+                      "description": "The state of the contract negotiation",
+                      "type": "string",
+                      "example": "OFFERED"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid contract negotiation offer format",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "description": "Error message",
+                      "type": "string"
+                    },
+                    "payload": {
+                      "description": "The invalid payload",
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/callback/negotiations/{consumerPid}/offers": {
+      "post": {
+        "summary": "Handles a consumer making an Offer by POSTing a Contract Request Message",
+        "description": "This endpoint processes a Contract Request Message sent by a consumer to make an Offer.",
+        "tags": [
+          "DSP Contract Negotiation"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "consumerPid",
+            "description": "The PID of the consumer.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "The Contract Request Message body.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "@context": {
+                    "description": "The context of the message",
+                    "type": "string"
+                  },
+                  "@type": {
+                    "description": "The type of the message",
+                    "type": "string"
+                  },
+                  "dspace:providerPid": {
+                    "description": "The PID of the provider",
+                    "type": "string"
+                  },
+                  "dspace:consumerPid": {
+                    "description": "The PID of the consumer",
+                    "type": "string"
+                  },
+                  "dspace:offer": {
+                    "description": "The offer being made",
+                    "type": "object"
+                  },
+                  "dspace:callbackAddress": {
+                    "description": "The callback address for the consumer",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Contract negotiation offer successfully handled.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "description": "Success message.",
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid contract negotiation offer format.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "description": "Error message.",
+                      "type": "string"
+                    },
+                    "payload": {
+                      "description": "The invalid payload.",
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/callback/negotiations/{consumerPid}/agreement": {
+      "post": {
+        "summary": "Handles a ContractAgreementVerificationMessage from a consumer.",
+        "description": "This endpoint processes a ContractAgreementVerificationMessage sent by a consumer to verify the acceptance of an Agreement.",
+        "tags": [
+          "DSP Contract Negotiation"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "consumerPid",
+            "description": "The PID of the consumer.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "The ContractAgreementVerificationMessage body.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "@context": {
+                    "description": "The context of the message",
+                    "type": "string"
+                  },
+                  "@type": {
+                    "description": "The type of the message",
+                    "type": "string"
+                  },
+                  "dspace:providerPid": {
+                    "description": "The PID of the provider.",
+                    "type": "string"
+                  },
+                  "dspace:consumerPid": {
+                    "description": "The PID of the consumer.",
+                    "type": "string"
+                  },
+                  "dspace:offer": {
+                    "description": "The offer being verified.",
+                    "type": "object"
+                  },
+                  "dspace:callbackAddress": {
+                    "description": "The callback address for the consumer.",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Contract agreement verification successfully handled.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "description": "Success message.",
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid contract agreement verification format.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "description": "Error message.",
+                      "type": "string"
+                    },
+                    "payload": {
+                      "description": "The invalid payload.",
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/callback/negotiations/{consumerPid}/events": {
+      "post": {
+        "summary": "Handles a ContractNegotiationEventMessage for agreement verification.",
+        "description": "This endpoint processes a ContractNegotiationEventMessage sent by a consumer to verify the acceptance of an Agreement.",
+        "tags": [
+          "DSP Contract Negotiation"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "consumerPid",
+            "description": "The PID of the consumer.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "The ContractNegotiationEventMessage body.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "@context": {
+                    "description": "The context of the message.",
+                    "type": "string"
+                  },
+                  "@type": {
+                    "description": "The type of the message.",
+                    "type": "string"
+                  },
+                  "dspace:providerPid": {
+                    "description": "The PID of the provider.",
+                    "type": "string"
+                  },
+                  "dspace:consumerPid": {
+                    "description": "The PID of the consumer.",
+                    "type": "string"
+                  },
+                  "dspace:eventType": {
+                    "description": "The type of event.",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Contract agreement verification event successfully handled.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "description": "Success message.",
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid contract negotiation event format.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "description": "Error message.",
+                      "type": "string"
+                    },
+                    "payload": {
+                      "description": "The invalid payload.",
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/callback/negotiations/{consumerPid}/termination": {
+      "post": {
+        "summary": "Handles the termination of a contract negotiation.",
+        "description": "This endpoint processes the termination of a contract negotiation initiated by the consumer.",
+        "tags": [
+          "DSP Contract Negotiation"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "consumerPid",
+            "description": "The PID of the consumer.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "The termination request body.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "@context": {
+                    "description": "The context of the message.",
+                    "type": "string"
+                  },
+                  "@type": {
+                    "description": "The type of the message.",
+                    "type": "string"
+                  },
+                  "dspace:consumerPid": {
+                    "description": "The PID of the consumer.",
+                    "type": "string"
+                  },
+                  "dspace:code": {
+                    "description": "The code for termination.",
+                    "required": false,
+                    "type": "string"
+                  },
+                  "dspace:reason": {
+                    "description": "The reason for termination.",
+                    "required": false,
+                    "type": "array"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Contract negotiation termination successfully handled.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "description": "Success message.",
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid contract negotiation termination format.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "description": "Error message.",
+                      "type": "string"
+                    },
+                    "payload": {
+                      "description": "The invalid payload.",
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/transfers/{providerPid}": {
       "get": {
-        "summary": "Get Data space Connector Self Description",
+        "summary": "Retrieves a transfer process by provider PID.",
+        "description": "This endpoint retrieves a transfer process using the provider's PID.",
         "tags": [
-          "Self-Description"
+          "DSP Transfer Process"
         ],
-        "produces": [
-          "application/json"
+        "parameters": [
+          {
+            "in": "path",
+            "name": "providerPid",
+            "description": "The PID of the provider.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
         ],
         "responses": {
           "200": {
-            "description": "Successful response"
+            "description": "Transfer process successfully retrieved.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "@context": {
+                      "description": "The context of the message.",
+                      "type": "string"
+                    },
+                    "@type": {
+                      "description": "The type of the message.",
+                      "type": "string"
+                    },
+                    "dspace:providerPid": {
+                      "description": "The PID of the provider.",
+                      "type": "string"
+                    },
+                    "dspace:consumerPid": {
+                      "description": "The PID of the consumer.",
+                      "type": "string"
+                    },
+                    "dspace:state": {
+                      "description": "The state of the transfer process.",
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Transfer process not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "description": "Error message.",
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
     },
-    "/provider/export": {
+    "/transfers/request": {
       "post": {
-        "summary": "Provider exchange webhook",
+        "summary": "Handles the reception of a transfer process request from a consumer.",
+        "description": "This endpoint processes the reception of a transfer process request from a consumer.",
         "tags": [
-          "Provider"
-        ],
-        "produces": [
-          "application/json"
+          "DSP Transfer Process"
         ],
         "requestBody": {
+          "description": "The transfer request body.",
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
                 "properties": {
-                  "dataExchangeId": {
-                    "description": "data exchange id",
+                  "@context": {
+                    "description": "The context of the message.",
                     "type": "string"
                   },
-                  "consumerEndpoint": {
-                    "description": "Consumer self-description",
+                  "@type": {
+                    "description": "The type of the message.",
                     "type": "string"
                   },
-                  "contract": {
-                    "description": "contract self-description",
+                  "dspace:consumerPid": {
+                    "description": "The PID of the consumer.",
+                    "type": "string"
+                  },
+                  "dspace:agreementId": {
+                    "description": "The ID of the agreement.",
+                    "type": "string"
+                  },
+                  "dct:format": {
+                    "description": "The format of the data.",
+                    "type": "string"
+                  },
+                  "dspace:dataAddress": {
+                    "description": "The data address.",
+                    "type": "object",
+                    "properties": {
+                      "@type": {
+                        "description": "The type of the data address.",
+                        "type": "string"
+                      },
+                      "dspace:endpointType": {
+                        "description": "The type of the endpoint.",
+                        "type": "string"
+                      },
+                      "dspace:endpoint": {
+                        "description": "The endpoint.",
+                        "type": "string"
+                      },
+                      "dspace:endpointProperties": {
+                        "description": "The endpoint properties.",
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "@type": {
+                              "description": "The type of the endpoint property.",
+                              "type": "string"
+                            },
+                            "dspace:name": {
+                              "description": "The name of the endpoint property.",
+                              "type": "string"
+                            },
+                            "dspace:value": {
+                              "description": "The value of the endpoint property.",
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "dspace:callbackAddress": {
+                    "description": "The callback address.",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Transfer process successfully created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "@context": {
+                      "description": "The context of the message.",
+                      "type": "string"
+                    },
+                    "@type": {
+                      "description": "The type of the message.",
+                      "type": "string"
+                    },
+                    "dspace:providerPid": {
+                      "description": "The PID of the provider.",
+                      "type": "string"
+                    },
+                    "dspace:consumerPid": {
+                      "description": "The PID of the consumer.",
+                      "type": "string"
+                    },
+                    "dspace:state": {
+                      "description": "The state of the transfer process.",
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/transfers/{providerPid}/start": {
+      "post": {
+        "summary": "Handles the reception of a Transfer Start Message sent by a consumer to start a TP.",
+        "description": "This endpoint processes the start of a transfer process initiated by the consumer.",
+        "tags": [
+          "DSP Transfer Process"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "providerPid",
+            "description": "The PID of the provider.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "The transfer start message body.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "@context": {
+                    "description": "The context of the message.",
+                    "type": "string"
+                  },
+                  "@type": {
+                    "description": "The type of the message.",
+                    "type": "string"
+                  },
+                  "dspace:providerPid": {
+                    "description": "The PID of the provider.",
+                    "type": "string"
+                  },
+                  "dspace:consumerPid": {
+                    "description": "The PID of the consumer.",
+                    "type": "string"
+                  },
+                  "dspace:dataAddress": {
+                    "description": "The data address.",
+                    "type": "object",
+                    "properties": {
+                      "@type": {
+                        "description": "The type of the data address.",
+                        "type": "string"
+                      },
+                      "dspace:endpointType": {
+                        "description": "The endpoint type of the data address.",
+                        "type": "string"
+                      },
+                      "dspace:endpoint": {
+                        "description": "The endpoint of the data address.",
+                        "type": "string"
+                      },
+                      "dspace:endpointProperties": {
+                        "description": "The endpoint properties of the data address.",
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "@type": {
+                              "description": "The type of the endpoint property.",
+                              "type": "string"
+                            },
+                            "dspace:name": {
+                              "description": "The name of the endpoint property.",
+                              "type": "string"
+                            },
+                            "dspace:value": {
+                              "description": "The value of the endpoint property.",
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Transfer process successfully started.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "description": "Success message.",
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid transfer start message format.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "description": "Error message.",
+                      "type": "string"
+                    },
+                    "payload": {
+                      "description": "The invalid payload.",
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/transfers/{providerPid}/completion": {
+      "post": {
+        "summary": "Handles the completion of a transfer process by the provider.",
+        "description": "This endpoint is used by the provider to complete a transfer process.",
+        "tags": [
+          "DSP Transfer Process"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "providerPid",
+            "description": "The PID of the provider.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "@context": {
+                    "description": "The context of the message.",
+                    "type": "string"
+                  },
+                  "@type": {
+                    "description": "The type of the message.",
+                    "type": "string"
+                  },
+                  "dspace:providerPid": {
+                    "description": "The PID of the provider.",
+                    "type": "string"
+                  },
+                  "dspace:consumerPid": {
+                    "description": "The PID of the consumer.",
                     "type": "string"
                   }
                 }
@@ -1900,32 +3479,405 @@
         },
         "responses": {
           "200": {
-            "description": "Successful response"
+            "description": "Transfer process successfully completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "description": "Success message.",
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid transfer completion message format.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "description": "Error message.",
+                      "type": "string"
+                    },
+                    "payload": {
+                      "description": "The invalid payload.",
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
     },
-    "/provider/import": {
+    "/transfers/{providerPid}/termination": {
       "post": {
-        "summary": "Provider import webhook",
+        "summary": "Handles the reception of a Transfer Termination Message sent by a consumer to terminate a TP.",
+        "description": "This endpoint processes the termination of a transfer process initiated by the consumer.",
         "tags": [
-          "Provider"
+          "DSP Transfer Process"
         ],
-        "produces": [
-          "application/json"
+        "parameters": [
+          {
+            "in": "path",
+            "name": "providerPid",
+            "description": "The PID of the provider.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
         ],
         "requestBody": {
+          "description": "The transfer termination message body.",
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
                 "properties": {
-                  "data": {
-                    "description": "data to import",
+                  "@context": {
+                    "description": "The context of the message.",
                     "type": "string"
                   },
-                  "dataExchange": {
-                    "description": "dataExchange",
+                  "@type": {
+                    "description": "The type of the message.",
+                    "type": "string"
+                  },
+                  "dspace:providerPid": {
+                    "description": "The PID of the provider.",
+                    "type": "string"
+                  },
+                  "dspace:consumerPid": {
+                    "description": "The PID of the consumer.",
+                    "type": "string"
+                  },
+                  "dspace:code": {
+                    "description": "The code for the termination.",
+                    "type": "string"
+                  },
+                  "dspace:reason": {
+                    "description": "The reasons for the termination.",
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Transfer process successfully terminated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "description": "Success message.",
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid transfer termination message format.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "description": "Error message.",
+                      "type": "string"
+                    },
+                    "payload": {
+                      "description": "The invalid payload.",
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/transfers/{providerPid}/suspension": {
+      "post": {
+        "summary": "Handles the suspension of a transfer process by the provider.",
+        "description": "This endpoint is used by the provider to suspend a transfer process.",
+        "tags": [
+          "DSP Transfer Process"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "providerPid",
+            "description": "The PID of the provider.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "The transfer suspension message body.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "@context": {
+                    "description": "The context of the message.",
+                    "type": "string"
+                  },
+                  "@type": {
+                    "description": "The type of the message.",
+                    "type": "string"
+                  },
+                  "dspace:providerPid": {
+                    "description": "The PID of the provider.",
+                    "type": "string"
+                  },
+                  "dspace:consumerPid": {
+                    "description": "The PID of the consumer.",
+                    "type": "string"
+                  },
+                  "dspace:code": {
+                    "description": "The code for the suspension.",
+                    "type": "string"
+                  },
+                  "dspace:reason": {
+                    "description": "The reasons for the suspension.",
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Transfer process successfully suspended.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "description": "Success message.",
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid transfer suspension message format.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "description": "Error message.",
+                      "type": "string"
+                    },
+                    "payload": {
+                      "description": "The invalid payload.",
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/callback/transfers/{consumerPid}/start": {
+      "post": {
+        "summary": "Handles the start of a transfer process by the provider.",
+        "description": "This endpoint is used by the provider to start a transfer process.",
+        "tags": [
+          "DSP Transfer Process"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "consumerPid",
+            "description": "The PID of the consumer.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "@context": {
+                    "description": "The context of the message.",
+                    "type": "string"
+                  },
+                  "@type": {
+                    "description": "The type of the message.",
+                    "type": "string"
+                  },
+                  "dspace:providerPid": {
+                    "description": "The PID of the provider.",
+                    "type": "string"
+                  },
+                  "dspace:consumerPid": {
+                    "description": "The PID of the consumer.",
+                    "type": "string"
+                  },
+                  "dspace:dataAddress": {
+                    "description": "The data address of the transfer process.",
+                    "type": "object",
+                    "properties": {
+                      "@type": {
+                        "description": "The type of the data address.",
+                        "type": "string"
+                      },
+                      "dspace:endpointType": {
+                        "description": "The type of the endpoint.",
+                        "type": "string"
+                      },
+                      "dspace:endpoint": {
+                        "description": "The endpoint of the data address.",
+                        "type": "string"
+                      },
+                      "dspace:endpointProperties": {
+                        "description": "The endpoint properties of the data address.",
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "@type": {
+                              "description": "The type of the endpoint property.",
+                              "type": "string"
+                            },
+                            "dspace:name": {
+                              "description": "The name of the endpoint property.",
+                              "type": "string"
+                            },
+                            "dspace:value": {
+                              "description": "The value of the endpoint property.",
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Transfer process successfully started.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "description": "Success message.",
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid transfer start message format.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "description": "Error message.",
+                      "type": "string"
+                    },
+                    "payload": {
+                      "description": "The invalid payload.",
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/callback/transfers/{consumerPid}/completion": {
+      "post": {
+        "summary": "Handles the completion of a transfer process by the provider.",
+        "description": "This endpoint is used by the provider to complete a transfer process.",
+        "tags": [
+          "DSP Transfer Process"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "consumerPid",
+            "description": "The PID of the consumer.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "The transfer completion message body.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "@context": {
+                    "description": "The context of the message.",
+                    "type": "string"
+                  },
+                  "@type": {
+                    "description": "The type of the message.",
+                    "type": "string"
+                  },
+                  "dspace:providerPid": {
+                    "description": "The PID of the provider.",
+                    "type": "string"
+                  },
+                  "dspace:consumerPid": {
+                    "description": "The PID of the consumer.",
                     "type": "string"
                   }
                 }
@@ -1935,23 +3887,279 @@
         },
         "responses": {
           "200": {
-            "description": "Successful response"
+            "description": "Transfer process successfully completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "description": "Success message.",
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid transfer completion message format.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "description": "Error message.",
+                      "type": "string"
+                    },
+                    "payload": {
+                      "description": "The invalid payload.",
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
     },
-    "/users/template": {
+    "/callback/transfers/{consumerPid}/termination": {
       "post": {
-        "summary": "Get the default csv file",
+        "summary": "Handles the termination of a transfer process by the provider.",
+        "description": "This endpoint is used by the provider to terminate a transfer process.",
         "tags": [
-          "Users"
+          "DSP Transfer Process"
         ],
-        "produces": [
-          "application/json"
+        "parameters": [
+          {
+            "in": "path",
+            "name": "consumerPid",
+            "description": "The PID of the consumer.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "The transfer termination message body.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "@context": {
+                    "description": "The context of the message.",
+                    "type": "string"
+                  },
+                  "@type": {
+                    "description": "The type of the message.",
+                    "type": "string"
+                  },
+                  "dspace:providerPid": {
+                    "description": "The PID of the provider.",
+                    "type": "string"
+                  },
+                  "dspace:consumerPid": {
+                    "description": "The PID of the consumer.",
+                    "type": "string"
+                  },
+                  "dspace:code": {
+                    "description": "The code for the termination.",
+                    "type": "string"
+                  },
+                  "dspace:reason": {
+                    "description": "The reasons for the termination.",
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Transfer process successfully terminated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "description": "Success message.",
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid transfer termination message format.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "description": "Error message.",
+                      "type": "string"
+                    },
+                    "payload": {
+                      "description": "The invalid payload.",
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/callback/transfers/{consumerPid}/suspension": {
+      "post": {
+        "summary": "Handles the suspension of a transfer process by the provider.",
+        "description": "This endpoint is used by the provider to suspend a transfer process.",
+        "tags": [
+          "DSP Transfer Process"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "consumerPid",
+            "description": "The PID of the consumer.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "The transfer suspension message body.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "@context": {
+                    "description": "The context of the message.",
+                    "type": "string"
+                  },
+                  "@type": {
+                    "description": "The type of the message.",
+                    "type": "string"
+                  },
+                  "dspace:providerPid": {
+                    "description": "The PID of the provider.",
+                    "type": "string"
+                  },
+                  "dspace:consumerPid": {
+                    "description": "The PID of the consumer.",
+                    "type": "string"
+                  },
+                  "dspace:code": {
+                    "description": "The code for the suspension.",
+                    "type": "string"
+                  },
+                  "dspace:reason": {
+                    "description": "The reasons for the suspension.",
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Transfer process successfully suspended.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "description": "Success message.",
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid transfer suspension message format.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "description": "Error message.",
+                      "type": "string"
+                    },
+                    "payload": {
+                      "description": "The invalid payload.",
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/.well-known/dspace-version": {
+      "get": {
+        "summary": "Get dataset dspace-version",
+        "tags": [
+          "DSP Procotol specification"
         ],
         "responses": {
           "200": {
-            "description": "Successful response"
+            "description": "Dataset found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "@context": {
+                      "description": "The context of the dataset",
+                      "type": "string"
+                    },
+                    "protocolVersions": {
+                      "description": "The protocol versions available",
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "version": {
+                            "description": "The version of the protocol",
+                            "type": "string"
+                          },
+                          "path": {
+                            "description": "The path to the protocol version",
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -1959,6 +4167,39 @@
   },
   "components": {
     "schemas": {
+      "Dataexchange": {
+        "type": "object",
+        "properties": {
+          "contract": {
+            "type": "string",
+            "description": "the self-description of the contract on which the exchange is based."
+          },
+          "providerEndpoint": {
+            "type": "string",
+            "description": "provider data space connector endpoint."
+          },
+          "purposeId": {
+            "type": "string",
+            "description": "purpose of the exchange, the service offering who consume the data."
+          },
+          "resourceId": {
+            "type": "string",
+            "description": "resource of the exchange, the service offering where the data come from."
+          },
+          "status": {
+            "type": "string",
+            "description": "status of the exchange."
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "timestamp."
+          },
+          "updatedAt": {
+            "type": "string",
+            "description": "timestamp."
+          }
+        }
+      },
       "Catalog": {
         "type": "object",
         "properties": {
@@ -2080,39 +4321,6 @@
             "description": "identifier provided by the consent."
           }
         }
-      },
-      "Dataexchange": {
-        "type": "object",
-        "properties": {
-          "contract": {
-            "type": "string",
-            "description": "the self-description of the contract on which the exchange is based."
-          },
-          "providerEndpoint": {
-            "type": "string",
-            "description": "provider data space connector endpoint."
-          },
-          "purposeId": {
-            "type": "string",
-            "description": "purpose of the exchange, the service offering who consume the data."
-          },
-          "resourceId": {
-            "type": "string",
-            "description": "resource of the exchange, the service offering where the data come from."
-          },
-          "status": {
-            "type": "string",
-            "description": "status of the exchange."
-          },
-          "createdAt": {
-            "type": "string",
-            "description": "timestamp."
-          },
-          "updatedAt": {
-            "type": "string",
-            "description": "timestamp."
-          }
-        }
       }
     },
     "securitySchemes": {
@@ -2124,36 +4332,12 @@
   },
   "tags": [
     {
-      "name": "Catalogs",
-      "description": "Catalogs of a data space connector"
-    },
-    {
-      "name": "Configuration",
-      "description": "Configuration routes"
+      "name": "Authentication",
+      "description": "Authentication to access private routes"
     },
     {
       "name": "Consent",
-      "description": "Private routes for the consent"
-    },
-    {
-      "name": "Credentials",
-      "description": "Credentials routes"
-    },
-    {
-      "name": "Infrastructure Configurations",
-      "description": "Infrastructure Configurations routes"
-    },
-    {
-      "name": "PDI",
-      "description": "PDI routes"
-    },
-    {
-      "name": "Users",
-      "description": "Catalogs of a data space connector"
-    },
-    {
-      "name": "Authentication",
-      "description": "Authentication to access private routes"
+      "description": "Consent routes"
     },
     {
       "name": "Consumer",
@@ -2174,6 +4358,46 @@
     {
       "name": "Provider",
       "description": "Provider webhook"
+    },
+    {
+      "name": "Catalogs",
+      "description": "Catalogs of a data space connector"
+    },
+    {
+      "name": "Configuration",
+      "description": "Configuration routes"
+    },
+    {
+      "name": "Credentials",
+      "description": "Credentials routes"
+    },
+    {
+      "name": "Infrastructure Configurations",
+      "description": "Infrastructure Configurations routes"
+    },
+    {
+      "name": "PDI",
+      "description": "PDI routes"
+    },
+    {
+      "name": "Users",
+      "description": "Catalogs of a data space connector"
+    },
+    {
+      "name": "DSP Catalog",
+      "description": "IDSA Catalog Protocol"
+    },
+    {
+      "name": "DSP Contract Negotiation",
+      "description": "IDSA Contract Negotiation Protocol"
+    },
+    {
+      "name": "DSP Transfer Process",
+      "description": "IDSA Transfer Process Protocol"
+    },
+    {
+      "name": "DSP Procotol specification",
+      "description": "IDSA Catalog Protocol"
     }
   ]
 }
