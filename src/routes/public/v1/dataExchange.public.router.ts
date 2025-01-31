@@ -5,7 +5,8 @@ import {
     getDataExchanges,
     updateDataExchange,
     getDataExchangeById,
-    createDataExchange, updateDataExchangeDataProcessing,
+    createDataExchange,
+    updateDataExchangeDataProcessing,
 } from '../../../controllers/public/v1/dataExchange.public.controller';
 const r: Router = Router();
 

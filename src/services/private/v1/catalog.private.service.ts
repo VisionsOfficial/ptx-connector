@@ -23,6 +23,21 @@ export const getCatalogByIdService = async (id: string) => {
 };
 
 /**
+ * Get a catalog by id
+ * @param id
+ * @returns ICatalog
+ */
+export const getServiceOfferingByIdService = async (id: string) => {
+    const catalog = await Catalog.findById(id).select('-__v').lean();
+
+    if (!catalog || catalog?.type !== 'serviceofferings') {
+        return null;
+    }
+
+    return catalog;
+};
+
+/**
  * Update a catalog by id
  * @param id
  * @param data

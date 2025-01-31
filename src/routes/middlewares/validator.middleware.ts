@@ -3,6 +3,7 @@ import { validationResult } from 'express-validator';
 
 /**
  * Checks the validation pipeline of express-validator
+ * @author Felix Bole
  */
 export const validate = (req: Request, res: Response, next: NextFunction) => {
     const errors = validationResult(req);

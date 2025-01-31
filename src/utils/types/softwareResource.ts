@@ -1,6 +1,6 @@
 import { IDataRepresentation } from './dataRepresentation';
 
-export interface IDataResource {
+export interface ISoftwareResource {
     representation?: IDataRepresentation;
     apiResponseRepresentation?: IDataRepresentation;
     createdAt?: Date;
@@ -9,11 +9,14 @@ export interface IDataResource {
     description?: any;
     license?: any;
     policy?: any;
-    producedBy?: any;
     schema_version?: any;
     country_or_region?: any;
     copyrightOwnedBy?: any;
     category?: any;
     subCategories?: any;
     exposedThrough?: any;
+    providedBy?: any;
+    aggregationOf?: any;
+    locationAddress?: any;
+    demo_link?: any;
 }

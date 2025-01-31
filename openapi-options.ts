@@ -9,5 +9,9 @@ export const OpenAPIOption = {
             description,
         },
     },
-    apis: ['./src/routes/private/v1/*.ts', './src/routes/public/v1/*.ts'],
+    apis: [
+        './src/routes/public/v1/*.ts',
+        './src/routes/private/v1/*.ts',
+        './src/routes/dsp/*.ts',
+    ],
 };
