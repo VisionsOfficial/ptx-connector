@@ -30,7 +30,8 @@ export interface IService {
 }
 
 export interface IServiceChain {
-    catalogId: string;
+    catalogId?: string;
+    serviceChainId: string;
     services: IService[];
 }
 
@@ -103,6 +104,7 @@ const schema = new Schema({
     },
     serviceChain: {
         catalogId: String,
+        serviceChainId: String,
         services: [
             {
                 participant: String,

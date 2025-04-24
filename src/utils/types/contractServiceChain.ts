@@ -10,6 +10,7 @@ export type Service = {
 };
 
 export type ContractServiceChain = {
-    catalogId: string;
+    catalogId?: string;
+    serviceChainId: string;
     services: Service[];
 };

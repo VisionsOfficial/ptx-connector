@@ -6,14 +6,14 @@ export const verifyInfrastructureInContract = (props: {
     chainId: string;
 }): boolean => {
     const { service, contract, chainId } = props;
+
     //verify that the contract contain this chain and the chain contain the service
     const chain = contract.serviceChains.find(
-        (element) =>
-            element.catalogId === chainId && element.status === 'active'
+        (element) => element.serviceChainId === chainId
     );
     if (!chain) {
         throw Error(
-            `Chain with catalogId ${chainId} not found in the contract ${contract._id}. Chain is stopping here and not sending data to remote service.`
+            `Chain with serviceChainId ${chainId} not found in the contract ${contract._id}. Chain is stopping here and not sending data to remote service.`
         );
     }
 

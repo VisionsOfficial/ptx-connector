@@ -17,7 +17,7 @@ export const triggerInfrastructureFlowService = async (
     try {
         // library implementation
         const nodeSupervisor = await SupervisorContainer.getInstance(
-            serviceChain.catalogId
+            serviceChain.serviceChainId
         );
 
         const chainConfig: NodeConfig[] = [];

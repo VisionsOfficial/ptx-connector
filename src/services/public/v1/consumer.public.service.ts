@@ -324,7 +324,7 @@ const verifyDataProcessingInContract = (
     }
 
     const serviceChain = serviceChains?.find(
-        (element) => element.catalogId === id
+        (element) => element.serviceChainId === id
     );
 
     if (!serviceChain) {

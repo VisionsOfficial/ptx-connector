@@ -22,6 +22,26 @@ export const getCredentialByIdService = async (
 };
 
 /**
+ * Return an array of credential and can process a string of multiple id seperated by a commas
+ * @param credential
+ */
+export const getCredentialByStringService = async (credential: string) => {
+    let credentialResponse = [];
+    if (credential.includes(',')) {
+        const creds = credential.split(',');
+        credentialResponse = await Credential.find({
+            _id: {
+                $in: creds,
+            },
+        });
+    } else {
+        credentialResponse.push(await Credential.findById(credential).lean());
+    }
+
+    return credentialResponse;
+};
+
+/**
  * Create a credential
  * @param params
  * @param {CredentialTypeEnum} params.type - Type of the credential

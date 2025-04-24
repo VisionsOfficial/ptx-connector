@@ -4,7 +4,7 @@ import { IDataExchange } from '../../utils/types/dataExchange';
 import { paramsMapper } from '../../utils/paramsMapper';
 import { handle } from './handler';
 import { User } from '../../utils/types/user';
-import { getCredentialByIdService } from '../../services/private/v1/credential.private.service';
+import { getCredentialByStringService } from '../../services/private/v1/credential.private.service';
 import { Headers } from '../../utils/types/headers';
 
 /**
@@ -44,47 +44,21 @@ export const postRepresentation = async (params: {
         targetId,
     } = params;
 
-    let cred;
-
-    if (credential && method !== 'none') {
-        cred = await getCredentialByIdService(credential);
-    }
-
     // Process headers
-    const headers = headerProcessing({
+    const headers = await headerProcessing({
         decryptedConsent,
         dataExchange,
         chainId,
         nextTargetId,
         previousTargetId,
         targetId,
+        credential,
+        method,
     });
 
-    switch (method) {
-        case 'none':
-            return await axios.post(endpoint, data, {
-                headers: headers,
-            });
-        case 'basic':
-            return await axios.post(
-                endpoint,
-                {
-                    ...data,
-                    username: cred.key,
-                    password: cred.value,
-                },
-                {
-                    headers: headers,
-                }
-            );
-        case 'apiKey':
-            return await axios.post(endpoint, data, {
-                headers: {
-                    [cred.key]: cred.value,
-                    ...headers,
-                },
-            });
-    }
+    return await axios.post(endpoint, data, {
+        headers: headers,
+    });
 };
 
 /**
@@ -125,47 +99,22 @@ export const putRepresentation = async (params: {
         targetId,
     } = params;
 
-    let cred;
-
-    if (credential && method !== 'none') {
-        cred = await getCredentialByIdService(credential);
-    }
-
     // Process headers
-    const headers = headerProcessing({
+    const headers = await headerProcessing({
         decryptedConsent,
         dataExchange,
         chainId,
+        targetId,
         nextTargetId,
         previousTargetId,
         nextNodeResolver,
+        credential,
+        method,
     });
 
-    switch (method) {
-        case 'none':
-            return await axios.put(endpoint, data, {
-                headers: headers,
-            });
-        case 'basic':
-            return await axios.put(
-                endpoint,
-                {
-                    ...data,
-                    // username: cred.key,
-                    // password: cred.value,
-                },
-                {
-                    headers: headers,
-                }
-            );
-        case 'apiKey':
-            return await axios.put(endpoint, data, {
-                headers: {
-                    [cred.key]: cred.value,
-                    ...headers,
-                },
-            });
-    }
+    return await axios.put(endpoint, data, {
+        headers: headers,
+    });
 };
 
 /**
@@ -209,14 +158,8 @@ export const getRepresentation = async (params: {
         targetId,
     } = params;
 
-    let cred;
-
-    if (credential && method !== 'none') {
-        cred = await getCredentialByIdService(credential);
-    }
-
     // Process headers
-    const headers = headerProcessing({
+    const headers = await headerProcessing({
         decryptedConsent,
         dataExchange,
         chainId,
@@ -224,6 +167,8 @@ export const getRepresentation = async (params: {
         previousTargetId,
         nextNodeResolver,
         targetId,
+        method,
+        credential,
     });
 
     let url;
@@ -250,19 +195,9 @@ export const getRepresentation = async (params: {
         url = urlWithParams;
     }
 
-    switch (method) {
-        case 'none':
-            return await axios.get(url, {
-                headers: headers,
-            });
-        case 'apiKey':
-            return await axios.get(url, {
-                headers: {
-                    [cred.key]: cred.value,
-                    ...headers,
-                },
-            });
-    }
+    return await axios.get(url, {
+        headers: headers,
+    });
 };
 
 /**
@@ -427,7 +362,7 @@ export const postOrPutRepresentation = async (params: {
  * @param params consent and dataExchange
  * @return object
  */
-const headerProcessing = (params: {
+const headerProcessing = async (params: {
     decryptedConsent?: any;
     dataExchange?: IDataExchange;
     chainId?: string;
@@ -435,7 +370,9 @@ const headerProcessing = (params: {
     previousTargetId?: string;
     nextNodeResolver?: string;
     targetId?: string;
-}): object => {
+    credential?: string;
+    method?: string;
+}): Promise<object> => {
     const {
         decryptedConsent,
         dataExchange,
@@ -444,6 +381,8 @@ const headerProcessing = (params: {
         previousTargetId,
         nextNodeResolver,
         targetId,
+        credential,
+        method,
     } = params;
 
     let headers: Headers = {
@@ -480,6 +419,14 @@ const headerProcessing = (params: {
             'x-ptx-contractId': dataExchange.contract.split('/').pop(),
             'x-ptx-contractURL': dataExchange.contract,
         };
+    }
+
+    if (credential && method !== 'none') {
+        const cred = await getCredentialByStringService(credential);
+        // Loop through the cred array to dynamically add headers
+        cred.forEach(({ key, value }) => {
+            headers[key] = value;
+        });
     }
 
     return headers;

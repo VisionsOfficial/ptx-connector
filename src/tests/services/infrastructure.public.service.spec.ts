@@ -27,7 +27,7 @@ describe('Infrastructure API tests', () => {
     }
 
     const serviceChain = {
-        catalogId: "1",
+        serviceChainId : "1",
         services: [
             {
                 service: "https://infrastructure.com",
