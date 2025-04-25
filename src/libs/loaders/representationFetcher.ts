@@ -415,9 +415,10 @@ const headerProcessing = async (params: {
             'x-ptx-incomingDataspaceConnectorURI': dataExchange.consumerEndpoint
                 ? dataExchange.consumerEndpoint
                 : dataExchange.providerEndpoint,
-            'x-ptx-dataExchangeId': dataExchange?._id.toString(),
-            'x-ptx-contractId': dataExchange.contract.split('/').pop(),
-            'x-ptx-contractURL': dataExchange.contract,
+            'x-ptx-data-exchange-identifier':
+                dataExchange?.exchangeIdentifier.toString(),
+            'x-ptx-contract-id': dataExchange.contract.split('/').pop(),
+            'x-ptx-contract-url': dataExchange.contract,
         };
     }
 

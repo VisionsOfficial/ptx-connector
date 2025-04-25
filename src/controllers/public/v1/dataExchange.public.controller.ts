@@ -16,7 +16,6 @@ export const createDataExchange = async (
 ) => {
     try {
         const dataExchange = await DataExchange.create({ ...req.body });
-        await dataExchange.syncWithParticipant();
         return restfulResponse(res, 200, dataExchange);
     } catch (err) {
         next(err);
@@ -35,7 +34,7 @@ export const getDataExchanges = async (
     next: NextFunction
 ) => {
     try {
-        const dataExchanges = await DataExchange.find();
+        const dataExchanges = await DataExchange.find().select('-exchangeKey');
         return restfulResponse(res, 200, dataExchanges);
     } catch (err) {
         next(err);
@@ -54,12 +53,73 @@ export const getDataExchangeById = async (
     next: NextFunction
 ) => {
     try {
-        const dataExchange = await DataExchange.findById(req.params.id);
+        const dataExchange = await DataExchange.findById(req.params.id).select(
+            '-exchangeKey'
+        );
         if (!dataExchange) {
             return restfulResponse(res, 404, {
                 error: 'Data exchange not found',
             });
         }
+        return restfulResponse(res, 200, dataExchange);
+    } catch (err) {
+        next(err);
+    }
+};
+
+/**
+ * get a data exchange by exchangeIdentifier
+ * @param req
+ * @param res
+ * @param next
+ */
+export const getDataExchangeByExchangeIdentifier = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+) => {
+    try {
+        const dataExchange = await DataExchange.findOne({
+            exchangeIdentifier: req.params.exchangeIdentifier,
+        }).select('-exchangeKey');
+        if (!dataExchange) {
+            return restfulResponse(res, 404, {
+                error: 'Data exchange not found',
+            });
+        }
+        return restfulResponse(res, 200, dataExchange);
+    } catch (err) {
+        next(err);
+    }
+};
+
+/**
+ * get a data exchange by id
+ * @param req
+ * @param res
+ * @param next
+ */
+export const updateDataExchangeByExchangeIdentifier = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+) => {
+    try {
+        const dataExchange = await DataExchange.findOneAndUpdate(
+            {
+                exchangeIdentifier: req.params.exchangeIdentifier,
+            },
+            {
+                ...req.body,
+            }
+        );
+
+        if (!dataExchange) {
+            return restfulResponse(res, 404, {
+                error: 'Data exchange not found',
+            });
+        }
+
         return restfulResponse(res, 200, dataExchange);
     } catch (err) {
         next(err);
@@ -109,7 +169,8 @@ export const updateDataExchangeDataProcessing = async (
     next: NextFunction
 ) => {
     try {
-        const { id, index } = req.params;
+        const { index } = req.params;
+        const { serviceChain } = req.body;
 
         const dataExchange = await DataExchange.findById(req.params.id);
 
@@ -119,7 +180,8 @@ export const updateDataExchangeDataProcessing = async (
             });
         }
 
-        dataExchange.serviceChain.services[parseInt(index)].completed = true;
+        dataExchange.serviceChain.services[parseInt(index)] =
+            serviceChain.services[parseInt(index)];
 
         if (parseInt(index) === dataExchange.serviceChain.services.length - 1) {
             await dataExchange.updateStatus(

@@ -19,6 +19,7 @@ import { getContract } from '../../../libs/third-party/contract';
 import { selfDescriptionProcessor } from '../../../utils/selfDescriptionProcessor';
 import { pepVerification } from '../../../utils/pepVerification';
 import { verifyInfrastructureInContract } from '../../../utils/verifyInfrastructureInContract';
+import { getEndpoint } from '../../../libs/loaders/configuration';
 
 type CallbackMeta = PipelineMeta & {
     configuration: {
@@ -53,7 +54,7 @@ export const nodeCallbackService = async (props: {
     let decryptedConsent: IDecryptedConsent;
 
     const dataExchange = await DataExchange.findOne({
-        providerDataExchange: (meta as CallbackMeta).configuration.dataExchange,
+        exchangeIdentifier: (meta as CallbackMeta).configuration.dataExchange,
     });
 
     if (!dataExchange) {
@@ -243,7 +244,18 @@ export const nodeCallbackService = async (props: {
                 }
             }
 
-            await dataExchange.completeServiceChain(targetId);
+            if (dataExchange.consumerEndpoint !== (await getEndpoint())) {
+                await dataExchange.updateStatus(
+                    DataExchangeStatusEnum.PAUSED,
+                    `paused by ${await getEndpoint()}`
+                );
+            } else {
+                await dataExchange.completeServiceChain(targetId);
+
+                await dataExchange.updateStatus(
+                    DataExchangeStatusEnum.IMPORT_SUCCESS);
+            }
+
             return {
                 ...output,
             };
@@ -280,7 +292,7 @@ export const nodePreCallbackService = async (props: {
     } = props;
 
     const dataExchange = await DataExchange.findOne({
-        providerDataExchange: (meta as CallbackMeta).configuration.dataExchange,
+        exchangeIdentifier: (meta as CallbackMeta).configuration.dataExchange,
     });
 
     if (!dataExchange) {

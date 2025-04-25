@@ -46,8 +46,7 @@ export const triggerInfrastructureFlowService = async (
                         participantName: participantResponse.name,
                         participantCatalogId: participantResponse._id,
                         dataExchange:
-                            dataExchange?._id.toString() ??
-                            dataExchange.consumerDataExchange,
+                            dataExchange?.exchangeIdentifier.toString(),
                         signedConsent: signedConsent,
                         encrypted: encrypted,
                         isLast: index === serviceChain.services.length - 1,

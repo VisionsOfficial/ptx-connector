@@ -8,6 +8,7 @@ import {
     NodeSupervisor,
     PipelineProcessor,
 } from 'dpcp-library';
+import { DataExchange } from '../../../utils/types/dataExchange';
 
 /**
  * Set up the node
@@ -110,12 +111,22 @@ export const resumeNode = async (req: Request, res: Response) => {
                 targetId,
                 chainId
             );
+
+            const config = nodes[0].getConfig();
+
             const nodeId = nodes[0]?.getId();
             await nodeSupervisor.enqueueSignals(
                 nodeId,
                 [NodeSignal.NODE_RESUME],
                 { data, params }
             );
+
+            const dataExchange = await DataExchange.findOne({
+                exchangeIdentifier: (config.services[0] as any).meta
+                    .configuration.dataExchange,
+            });
+
+            await dataExchange.completeServiceChain(targetId);
         } else if (hostURI && hostURI !== 'local') {
             nodeSupervisor.remoteReport(
                 {

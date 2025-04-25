@@ -21,6 +21,7 @@ import { Logger } from '../../libs/loggers';
 import { PEP } from '../../access-control/PolicyEnforcementPoint';
 import { CredentialTypeEnum } from '../../utils/enums/credentialTypeEnum';
 import { getCatalogUri } from '../../libs/loaders/configuration';
+import { randomUUID } from 'node:crypto';
 
 dotenv.config({ path: '.env.test' });
 PEP.showLog = true;
@@ -114,6 +115,8 @@ describe('Billing Access Control Test Cases', function () {
             completed: false
         };
         const dataExchange = await DataExchange.create({
+            exchangeIdentifier: `${randomUUID().slice(0, 8)}-${Date.now()}`,
+            exchangeKey: randomUUID(),
             consumerId,
             providerEndpoint: '',
             resource,

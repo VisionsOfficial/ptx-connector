@@ -24,6 +24,7 @@ export interface IParams {
 export interface IService {
     participant: string;
     service: string;
+    connector: string;
     configuration: string;
     params: any;
     completed?: boolean;
@@ -37,6 +38,8 @@ export interface IServiceChain {
 
 interface IDataExchange {
     _id: ObjectId;
+    exchangeIdentifier: string;
+    exchangeKey: string;
     providerEndpoint: string;
     resources: [IData];
     purposeId?: string;
@@ -77,7 +80,7 @@ interface IDataExchangeMethods {
     createDataExchangeToOtherParticipant(
         participant: 'provider' | 'consumer'
     ): Promise<void>;
-    syncWithParticipant(): Promise<void>;
+    syncWithParticipant(endpoint: string): Promise<void>;
     updateStatus(status: string, payload?: any): Promise<IDataExchangeModel>;
 }
 
@@ -89,6 +92,8 @@ const dataSchema = new Schema({
 
 const schema = new Schema({
     resources: [dataSchema],
+    exchangeIdentifier: String,
+    exchangeKey: String,
     purposeId: String,
     contract: String,
     consumerEndpoint: String,
@@ -109,6 +114,8 @@ const schema = new Schema({
             {
                 participant: String,
                 service: String,
+                connector: String,
+                dataExchange: String,
                 configuration: String,
                 params: { type: Schema.Types.Mixed },
                 pre: [{ type: Schema.Types.Mixed }],
@@ -128,6 +135,8 @@ schema.methods.createDataExchangeToOtherParticipant = async function (
     let data;
     if (participant === 'provider') {
         data = {
+            exchangeIdentifier: this.exchangeIdentifier,
+            exchangeKey: this.exchangeKey,
             consumerEndpoint: await getEndpoint(),
             resources: this.resources,
             purposeId: this.purposeId,
@@ -139,6 +148,8 @@ schema.methods.createDataExchangeToOtherParticipant = async function (
         };
     } else {
         data = {
+            exchangeIdentifier: this.exchangeIdentifier,
+            exchangeKey: this.exchangeKey,
             providerEndpoint: await getEndpoint(),
             resources: this.resources,
             purposeId: this.purposeId,
@@ -170,61 +181,106 @@ schema.methods.createDataExchangeToOtherParticipant = async function (
 /**
  * Sync the data exchange with the participant
  */
-schema.methods.syncWithParticipant = async function () {
-    let data;
-    if (this.consumerDataExchange && this.providerDataExchange) return;
-
-    if (this.consumerEndpoint && this.consumerDataExchange) {
-        data = {
-            providerDataExchange: this._id,
-        };
-    } else {
-        data = {
-            consumerDataExchange: this._id,
-        };
-    }
+schema.methods.syncWithParticipant = async function (endpoint: string) {
+    const data = { ...this._doc };
+    delete data._id;
     await axios.put(
         urlChecker(
-            this.consumerEndpoint ?? this.providerEndpoint,
-            `dataexchanges/${
-                this.consumerDataExchange ?? this.providerDataExchange
-            }`
+            endpoint,
+            `private/dataexchanges/exchangeidentifier/${this.exchangeIdentifier}`
         ),
-        data
+        data,
+        {
+            headers: {
+                'ptx-data-exchange-key': this.exchangeKey,
+            },
+        }
     );
 };
 
 /**
  * Sync the data exchange with the infrastructure
  * @param infrastructureEndpoint The infrastructure endpoint, if not provided, the participant endpoint will be requested
+ * @param service
  */
 schema.methods.syncWithInfrastructure = async function (
-    infrastructureEndpoint?: string
+    infrastructureEndpoint?: string,
+    service?: string
 ) {
     if (!this.providerDataExchange) this.providerDataExchange = this._id;
     if (!this.consumerDataExchange) this.consumerDataExchange = this._id;
     if (!this.providerEndpoint) this.providerEndpoint = await getEndpoint();
     if (!this.consumerEndpoint) this.consumerEndpoint = this._id;
 
-    const [response] = await handle(
-        axios.post(urlChecker(infrastructureEndpoint, 'dataexchanges'), {
-            providerParams: this.providerParams,
-            serviceChain: this.serviceChain,
-            resources: this.resources,
-            purposeId: this.purposeId,
-            contract: this.contract,
-            consumerEndpoint: this.consumerEndpoint,
-            status: this.status,
-            consumerDataExchange: this.consumerDataExchange,
-            providerDataExchange: this.providerDataExchange,
-            providerEndpoint: this.providerEndpoint,
-        })
-    );
+    if (!this.serviceChain.services[0].connector) {
+        this.serviceChain.services[0].connector = this.providerEndpoint;
+    }
 
-    if (response.content._id) {
-        return response.content;
-    } else {
-        throw new Error('Failed to sync with infrastructure');
+    if (
+        !this.serviceChain.services[this.serviceChain.services.length - 1]
+            .connector
+    ) {
+        this.serviceChain.services[
+            this.serviceChain.services.length - 1
+        ].connector = this.consumerEndpoint;
+    }
+
+    if (service && infrastructureEndpoint && this.serviceChain.serviceChainId) {
+        const index = this.serviceChain.services.findIndex(
+            (element: { service: string }) => element.service === service
+        );
+
+        if (index) {
+            this.serviceChain.services[index].connector =
+                infrastructureEndpoint;
+        } else {
+            if (
+                this.serviceChain.services[index].pre &&
+                this.serviceChain.services[index].pre.length > 0
+            ) {
+                for (const preChain of this.serviceChain.services[index].pre) {
+                    const preIndex = preChain.services.findIndex(
+                        (element: { service: string }) =>
+                            element.service === service
+                    );
+
+                    if (preIndex) {
+                        preChain.services[preIndex].connector =
+                            infrastructureEndpoint;
+                    }
+                }
+            }
+        }
+
+        await this.save();
+
+        const [response] = await handle(
+            axios.post(urlChecker(infrastructureEndpoint, 'dataexchanges'), {
+                exchangeIdentifier: this.exchangeIdentifier,
+                exchangeKey: this.exchangeKey,
+                providerParams: this.providerParams,
+                serviceChain: this.serviceChain,
+                resources: this.resources,
+                purposeId: this.purposeId,
+                contract: this.contract,
+                consumerEndpoint: this.consumerEndpoint,
+                status: this.status,
+                consumerDataExchange: this.consumerDataExchange,
+                providerDataExchange: this.providerDataExchange,
+                providerEndpoint: this.providerEndpoint,
+            })
+        );
+
+        if (response.content._id) {
+            await this.syncWithParticipant(
+                this.consumerEndpoint !== (await getEndpoint())
+                    ? this.consumerEndpoint
+                    : this.providerEndpoint
+            );
+            return response.content;
+        } else {
+            throw new Error('Failed to sync with infrastructure');
+        }
     }
 };
 
@@ -236,19 +292,21 @@ schema.methods.syncWithInfrastructure = async function (
 schema.methods.updateStatus = async function (status: string, payload?: any) {
     this.status = status;
     this.payload = payload;
-    await axios.put(
-        urlChecker(
-            this?.consumerEndpoint ?? this?.providerEndpoint,
-            `dataexchanges/${
-                this?.consumerDataExchange ?? this?.providerDataExchange
-            }`
-        ),
-        {
-            status,
-            payload,
+    await this.save();
+
+    if (this.serviceChain.serviceChainId) {
+        for (const service of this.serviceChain.services) {
+            if (service.connector !== (await getEndpoint())) {
+                await this.syncWithParticipant(service.connector);
+            }
         }
-    );
-    return this.save();
+    } else {
+        await this.syncWithParticipant(
+            this?.consumerEndpoint ?? this?.providerEndpoint
+        );
+    }
+
+    return this;
 };
 
 /**
@@ -265,35 +323,25 @@ schema.methods.completeServiceChain = async function (service: string) {
     } else {
         this.serviceChain.services[indexToUpdate].completed = true;
 
-        if (this.consumerEndpoint && this.consumerDataExchange) {
-            await axios.put(
-                urlChecker(
-                    this?.consumerEndpoint,
-                    `dataexchanges/${this?.consumerDataExchange}/servicechains/${indexToUpdate}`
-                ),
-                {
-                    serviceChain: this.serviceChain,
+        await this.save();
+
+        if (this.serviceChain.serviceChainId) {
+            for (const service of this.serviceChain.services) {
+                if (service.connector !== (await getEndpoint())) {
+                    await this.syncWithParticipant(service.connector);
                 }
+            }
+        } else {
+            await this.syncWithParticipant(
+                this?.consumerEndpoint ?? this?.providerEndpoint
             );
         }
-
-        if (this.providerEndpoint && this.providerDataExchange) {
-            await axios.put(
-                urlChecker(
-                    this?.providerEndpoint,
-                    `dataexchanges/${this?.providerDataExchange}/servicechains/${indexToUpdate}`
-                ),
-                {
-                    serviceChain: this.serviceChain,
-                }
-            );
-        }
-
-        this.save();
     }
 };
 
 type IDataExchangeModel = Document & IDataExchange & IDataExchangeMethods;
+
+schema.set('versionKey', false);
 
 const DataExchange = connection.model<IDataExchangeModel>(
     'dataexchange',

@@ -12,6 +12,7 @@ import { getEndpoint } from '../../../libs/loaders/configuration';
 import { getCatalogData } from '../../../libs/third-party/catalog';
 import { ExchangeError } from '../../../libs/errors/exchangeError';
 import { getContract } from '../../../libs/third-party/contract';
+import { randomUUID } from 'node:crypto';
 
 export const triggerBilateralFlow = async (props: {
     contract: string;
@@ -59,6 +60,8 @@ export const triggerBilateralFlow = async (props: {
 
     if (providerResponse?.dataspaceEndpoint !== (await getEndpoint())) {
         dataExchange = await DataExchange.create({
+            exchangeIdentifier: `${randomUUID().slice(0, 8)}-${Date.now()}`,
+            exchangeKey: randomUUID(),
             providerEndpoint: providerResponse?.dataspaceEndpoint,
             resources: mappedResources,
             purposeId: contractResponse.purpose[0].purpose,
@@ -74,6 +77,8 @@ export const triggerBilateralFlow = async (props: {
             axios.get(contractResponse.dataConsumer)
         );
         dataExchange = await DataExchange.create({
+            exchangeIdentifier: `${randomUUID().slice(0, 8)}-${Date.now()}`,
+            exchangeKey: randomUUID(),
             consumerEndpoint: consumerResponse?.dataspaceEndpoint,
             resources: mappedResources,
             purposeId: contractResponse.purpose[0].purpose,
@@ -205,6 +210,8 @@ export const triggerEcosystemFlow = async (props: {
     ) {
         //search consumerEndpoint
         dataExchange = await DataExchange.create({
+            exchangeIdentifier: `${randomUUID().slice(0, 8)}-${Date.now()}`,
+            exchangeKey: randomUUID(),
             providerEndpoint:
                 providerSelfDescriptionResponse?.dataspaceEndpoint,
             resources: mappedResources,
@@ -221,6 +228,8 @@ export const triggerEcosystemFlow = async (props: {
         (await getEndpoint())
     ) {
         dataExchange = await DataExchange.create({
+            exchangeIdentifier: `${randomUUID().slice(0, 8)}-${Date.now()}`,
+            exchangeKey: randomUUID(),
             consumerEndpoint:
                 consumerSelfDescriptionResponse?.dataspaceEndpoint,
             resources: mappedResources,

@@ -5,7 +5,9 @@ import {
     getDataExchanges,
     updateDataExchange,
     getDataExchangeById,
-    createDataExchange, updateDataExchangeDataProcessing,
+    createDataExchange,
+    updateDataExchangeDataProcessing,
+    getDataExchangeByExchangeIdentifier,
 } from '../../../controllers/public/v1/dataExchange.public.controller';
 const r: Router = Router();
 
@@ -46,18 +48,6 @@ const r: Router = Router();
  *           description: timestamp.
  */
 
-// /**
-//  * @swagger
-//  * /dataexchanges:
-//  *   post:
-//  *     summary: Create a data Exchange
-//  *     tags: [Data-Exchange]
-//  *     produces:
-//  *       - application/json
-//  *     responses:
-//  *       '200':
-//  *         description: Successful response
-//  */
 r.post('/', createDataExchange);
 
 /**
@@ -94,35 +84,29 @@ r.get('/', getDataExchanges);
  */
 r.get('/:id', getDataExchangeById);
 
-// /**
-//  * @swagger
-//  * /dataexchanges/{id}:
-//  *   put:
-//  *     summary: update data exchange
-//  *     tags: [Data-Exchange]
-//  *     produces:
-//  *       - application/json
-//  *     parameters:
-//  *        - name: id
-//  *          description: data exchange id.
-//  *          in: path
-//  *          required: true
-//  *          type: string
-//  *     requestBody:
-//  *      content:
-//  *       application/json:
-//  *         schema:
-//  *           type: object
-//  *           properties:
-//  *             consumerEndpoint:
-//  *               description: consumer endpoint where the data have been imported
-//  *             payload:
-//  *               description: payload
-//  *               type: string
-//  *     responses:
-//  *       '200':
-//  *         description: Successful response
-//  */
+/**
+ * @swagger
+ * /dataexchanges/exchangeidentifier/{exchangeidentifier}:
+ *   get:
+ *     summary: Get data exchange by exchangeidentifier
+ *     tags: [Data-Exchange]
+ *     produces:
+ *       - application/json
+ *     parameters:
+ *        - name: exchangeidentifier
+ *          description: data exchange exchangeidentifier.
+ *          in: path
+ *          required: true
+ *          type: string
+ *     responses:
+ *       '200':
+ *         description: Successful response
+ */
+r.get(
+    '/exchangeidentifier/:exchangeIdentifier',
+    getDataExchangeByExchangeIdentifier
+);
+
 r.put('/:id', updateDataExchange);
 
 r.put('/:id/servicechains/:index', updateDataExchangeDataProcessing);

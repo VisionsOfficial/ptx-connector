@@ -1,5 +1,6 @@
 export type Service = {
     participant: string;
+    connector?: string;
     service: string;
     configuration: string;
     params: {

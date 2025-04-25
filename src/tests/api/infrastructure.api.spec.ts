@@ -6,6 +6,7 @@ import { MongoMemoryServer } from 'mongodb-memory-server';
 import mongoose from 'mongoose';
 import { DataExchange } from '../../utils/types/dataExchange';
 import dotenv from 'dotenv';
+import { randomUUID } from 'node:crypto';
 dotenv.config({ path: '.env.test' });
 
 describe('Infrastructure API tests', () => {
@@ -21,6 +22,8 @@ describe('Infrastructure API tests', () => {
         await mongoose.connect(mongoUri);
 
         const dataExchange = await DataExchange.create({
+            exchangeIdentifier: `${randomUUID().slice(0, 8)}-${Date.now()}`,
+            exchangeKey: randomUUID(),
             providerEndpoint: "https://test.com",
             resources: [],
             providerDataExchange: "https://test.com",

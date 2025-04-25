@@ -102,7 +102,8 @@ export const consumerExchange = async (
                     participantEndpoint !== dataExchange?.providerEndpoint
                 )
                     await dataExchange.syncWithInfrastructure(
-                        participantEndpoint
+                        participantEndpoint,
+                        service.service
                     );
 
                 if (service.pre && service.pre.length > 0) {
@@ -123,7 +124,8 @@ export const consumerExchange = async (
                             ) {
                                 // Sync the data exchange with the infrastructure
                                 await dataExchange.syncWithInfrastructure(
-                                    participantEndpoint
+                                    participantEndpoint,
+                                    element.service
                                 );
                             }
                         }
@@ -158,13 +160,16 @@ export const consumerExchange = async (
             );
         }
         const startTime = Date.now();
-        const timeout = 30 * 1000;
+        const timeout =
+            (parseInt(process.env.EXCHANGE_TRIGGER_TIMEOUT) || 30) * 1000;
         let message: string;
         let success = false;
         // return code 200 everything is ok
         while (dataExchange.status === 'PENDING') {
             if (Date.now() - startTime > timeout) {
-                message = '30 sec Timeout reached.';
+                message = `${
+                    parseInt(process.env.EXCHANGE_TRIGGER_TIMEOUT) || 30
+                } sec Timeout reached.`;
                 break;
             }
             dataExchange = await DataExchange.findById(dataExchange._id);

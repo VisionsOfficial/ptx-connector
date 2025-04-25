@@ -126,7 +126,6 @@ type LoggerOptions = {
 const DEFAULT_LOGGER_OPTIIONS: LoggerOptions = {
     level: 'debug',
     message: 'Log fired with no message',
-    location: 'UNKNOWN LOCATION',
     // eslint-disable-next-line
     callback: () => {},
 };
@@ -200,7 +199,7 @@ export class Logger {
     private static doLog(opts: LoggerOptions) {
         this.logger.log(
             opts.level,
-            `${opts.message} -- ${opts.location}`,
+            `${opts.message}${opts.location ? `-- ${opts.location}` : ''}`,
             opts.callback
         );
     }
