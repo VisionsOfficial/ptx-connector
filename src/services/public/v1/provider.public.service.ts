@@ -16,14 +16,7 @@ import { processLeftOperands } from '../../../utils/leftOperandProcessor';
 import { Logger } from '../../../libs/loggers';
 import { triggerInfrastructureFlowService } from './infrastructure.public.service';
 
-interface IProviderExportServiceOptions {
-    infrastructureConfigurationId?: string;
-}
-
-export const ProviderExportService = async (
-    consumerDataExchange: string,
-    options?: IProviderExportServiceOptions
-) => {
+export const ProviderExportService = async (consumerDataExchange: string) => {
     //Get the data exchange
     const dataExchange = await DataExchange.findOne({
         consumerDataExchange: consumerDataExchange,

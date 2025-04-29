@@ -1,5 +1,4 @@
 import { Logger } from '../../../libs/loggers';
-import { IInfrastructureConfiguration } from '../../../utils/types/infrastructureConfiguration';
 import { PipelineMeta } from 'dpcp-library';
 import { handle } from '../../../libs/loaders/handler';
 import {
@@ -30,6 +29,10 @@ type CallbackMeta = PipelineMeta & {
     };
 };
 
+/**
+ * Callback used by the dpcp-library
+ * @param props
+ */
 export const nodeCallbackService = async (props: {
     targetId: string;
     data: any;
@@ -120,27 +123,6 @@ export const nodeCallbackService = async (props: {
                     throw new Error('consent not verified.');
                 }
             }
-
-            // if (
-            //     //@ts-ignore
-            //     meta?.configuration?.infrastructureConfiguration &&
-            //     //@ts-ignore
-            //     meta?.configuration?.infrastructureConfiguration.includes(',')
-            // ) {
-            //     confs = await InfrastructureConfiguration.find({
-            //         _id: {
-            //             //@ts-ignore
-            //             $in: meta?.configuration?.infrastructureConfiguration.split(
-            //                 ','
-            //             ),
-            //         },
-            //     });
-            // } else {
-            //     conf = await InfrastructureConfiguration.findById(
-            //         //@ts-ignore
-            //         meta?.configuration?.infrastructureConfiguration
-            //     );
-            // }
 
             //retrieve offer by targetId
             const [offer] = await handle(getCatalogData(targetId));
@@ -272,6 +254,10 @@ export const nodeCallbackService = async (props: {
     }
 };
 
+/**
+ * Callback used in case of pre chain
+ * @param props
+ */
 export const nodePreCallbackService = async (props: {
     targetId?: string;
     data?: any;
@@ -369,6 +355,7 @@ export const nodePreCallbackService = async (props: {
                 }
             }
 
+            // TODO for post
             // // softwareResource = default POST data, use conf if exists and check for is API
             // if (offer.softwareResources && offer.softwareResources.length > 0) {
             //     for (const softwareResource of offer.softwareResources) {
@@ -426,25 +413,5 @@ export const nodePreCallbackService = async (props: {
             message: e.message,
             location: 'nodePreCallbackService',
         });
-    }
-};
-
-const selectData = (conf: IInfrastructureConfiguration, data: any) => {
-    if (!data.latestData && !data.transformedData) {
-        return data;
-    }
-
-    if (!conf) return data.latestData;
-
-    switch (conf.data) {
-        case 'latestData': {
-            return data.latestData;
-        }
-        case 'augmentedData': {
-            return data.augmentedData;
-        }
-        case 'latestData:augmentedData': {
-            return { ...data.latestData, ...data.transformedData };
-        }
     }
 };

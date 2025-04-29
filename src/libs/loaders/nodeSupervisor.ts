@@ -242,8 +242,6 @@ export class SupervisorContainer {
                         resolver: participantEndpoint,
                         configuration: {
                             params: { ...serviceChain.params },
-                            infrastructureConfiguration:
-                                serviceChain.configuration,
                             participantName,
                             participantCatalogId,
                             participantEndpoint,
@@ -282,7 +280,6 @@ export class SupervisorContainer {
                     configuration: {
                         signedConsent: any;
                         encrypted: any;
-                        infrastructureConfiguration: any;
                         dataExchange: string;
                         participantEndpoint: string;
                         participantCatalogId: any;
@@ -312,8 +309,6 @@ export class SupervisorContainer {
                                 resolver: participantEndpoint,
                                 configuration: {
                                     params: { ...service.params },
-                                    infrastructureConfiguration:
-                                        service.configuration,
                                     participantName: participantResponse.name,
                                     participantCatalogId:
                                         participantResponse._id,
