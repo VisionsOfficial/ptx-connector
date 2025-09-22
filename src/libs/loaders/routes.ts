@@ -12,7 +12,7 @@ type RouterSetup = {
     middleware?: () => unknown;
 };
 
-const routersToSetup = [PrivateRouterV1, InternalRouterV1, PublicRouterV1];
+const routersToSetup = [PublicRouterV1, PrivateRouterV1, InternalRouterV1];
 
 export = (app: Application) => {
     routersToSetup.forEach((config: RouterSetup) => {

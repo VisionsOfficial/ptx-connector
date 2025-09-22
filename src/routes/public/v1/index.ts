@@ -7,6 +7,10 @@ import dataExchangePublicRouter from './dataExchange.public.router';
 import consumerPublicRouter from './consumer.public.router';
 import userPublicRouter from './user.public.router';
 import nodePublicRouter from './node.public.router';
+import negotiationsRouterDsp from '../../dsp/negotiations.router.dsp';
+import transfersRouterDsp from '../../dsp/transfers.router.dsp';
+import catalogRouterDsp from '../../dsp/catalog.router.dsp';
+import versionRouterDsp from '../../dsp/version.router.dsp';
 import exchangePublicRouter from './exchange.public.router';
 
 const routers = [
@@ -49,6 +53,22 @@ const routers = [
     {
         prefix: '/exchange',
         router: exchangePublicRouter,
+    },
+    {
+        prefix: '/',
+        router: negotiationsRouterDsp,
+    },
+    {
+        prefix: '/',
+        router: transfersRouterDsp,
+    },
+    {
+        prefix: '/',
+        router: catalogRouterDsp,
+    },
+    {
+        prefix: '/',
+        router: versionRouterDsp,
     },
 ];
 
