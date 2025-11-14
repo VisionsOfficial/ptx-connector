@@ -32,16 +32,8 @@ export const exportData = async (
             encrypted,
         });
 
-        if (
-            result.exchange !== null &&
-            result.exchange.status === DataExchangeStatusEnum.EXPORT_SUCCESS
-        ) {
+        if (result.exchange !== null) {
             return restfulResponse(res, 200, { success: true, message: 'OK' });
-        } else {
-            Logger.error({
-                message: result.errorMessage,
-            });
-            return restfulResponse(res, 400, { success: false, error: '' });
         }
     } catch (err) {
         Logger.error({
