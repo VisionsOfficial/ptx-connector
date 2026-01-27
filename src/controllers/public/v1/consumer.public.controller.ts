@@ -16,6 +16,7 @@ import { ExchangeError } from '../../../libs/errors/exchangeError';
 import axios from 'axios';
 import { verifyPayloadDefault } from '../../../utils/validation/payloadValidation';
 import { ObjectId } from 'mongodb';
+import {amqpPublisher, kafkaPublisher, websocketPublisher} from "../../../utils/publisher";
 
 /**
  * trigger the data exchange between provider and consumer in a bilateral or ecosystem contract
@@ -47,7 +48,8 @@ export const consumerExchange = async (
         let providerEndpoint: string;
 
         // ecosystem contract
-        if (contract.includes('contracts')) {
+        if (contract.includes('contracts'))
+        {
             const {
                 dataExchange: ecosystemDataExchange,
                 providerEndpoint: endpoint,
@@ -65,7 +67,8 @@ export const consumerExchange = async (
 
             dataExchange = ecosystemDataExchange;
             if (endpoint) providerEndpoint = endpoint;
-        } else {
+        } else
+        {
             const {
                 dataExchange: bilateralDataExchange,
                 providerEndpoint: endpoint,
@@ -139,7 +142,7 @@ export const consumerExchange = async (
             }
         }
 
-        //Trigger provider.ts endpoint exchange
+        //default protocol and use provider export service
         if (dataExchange.consumerEndpoint) {
             const updatedDataExchange = await DataExchange.findById(
                 dataExchange._id
@@ -148,7 +151,9 @@ export const consumerExchange = async (
             await ProviderExportService(
                 updatedDataExchange.consumerDataExchange
             );
-        } else {
+        }
+        //default protocol and request provider
+        else {
             if (providerEndpoint === (await getEndpoint())) {
                 Logger.error({
                     message: "Can't make request to itself.",
@@ -164,14 +169,15 @@ export const consumerExchange = async (
                 providerExport(providerEndpoint, dataExchange._id.toString())
             );
         }
+
         const startTime = Date.now();
-        const timeout = 30 * 1000;
+        const timeout =  (process.env.EXCHANGE_TIMEOUT ? parseInt(process.env.EXCHANGE_TIMEOUT) : 30) * 1000;
         let message: string;
         let success = false;
         // return code 200 everything is ok
-        while (dataExchange.status === 'PENDING') {
+        while (dataExchange.status === 'PENDING' || dataExchange.status === 'TRANSFER_STARTED') {
             if (Date.now() - startTime > timeout) {
-                message = '30 sec Timeout reached.';
+                message = `${(process.env.EXCHANGE_TIMEOUT ? parseInt(process.env.EXCHANGE_TIMEOUT) : 30)} sec Timeout reached.`;
                 break;
             }
             dataExchange = await DataExchange.findById(dataExchange._id);
@@ -179,6 +185,11 @@ export const consumerExchange = async (
                 success = true;
             }
         }
+
+        //Publisher
+        // amqpPublisher(dataExchange);
+        // kafkaPublisher(dataExchange);
+        // websocketPublisher(dataExchange);
 
         return restfulResponse(res, 200, { success, dataExchange, message });
     } catch (e) {
@@ -252,7 +263,8 @@ export const consumerImport = async (
 
         await dataExchange?.updateStatus(
             DataExchangeStatusEnum.CONSUMER_IMPORT_ERROR,
-            e.message
+            e.message,
+            await getEndpoint()
         );
 
         return restfulResponse(res, 500, { success: false });

@@ -209,6 +209,42 @@ export const triggerEcosystemFlow = async (props: {
         );
     }
 
+    const contractMembers = contractResponse.members.map(
+        (e: any) => e.participant
+    );
+
+    if (contractMembers.length === 0) {
+        throw new ExchangeError(
+            'No members found in the contract',
+            'triggerEcosystemFlow',
+            500
+        );
+    }
+
+    if (
+        resourceExists &&
+        resourceExists.participant &&
+        !contractMembers.includes(resourceExists.participant)
+    ) {
+        throw new ExchangeError(
+            'Participant associated to the resource is not part of the contract',
+            'triggerEcosystemFlow',
+            500
+        );
+    }
+
+    if (
+        purposeExists &&
+        purposeExists.participant &&
+        !contractMembers.includes(purposeExists.participant)
+    ) {
+        throw new ExchangeError(
+            'Participant associated to the purpose is not part of the contract',
+            'triggerEcosystemFlow',
+            500
+        );
+    }
+
     const [serviceOfferingResponse] = await handle(getCatalogData(resourceId));
     const [purposeResponse] = await handle(getCatalogData(purposeId));
 
@@ -493,21 +529,37 @@ export const consumerImportService = async (props: {
                     const [postConsumerData] = await handle(
                         postRepresentation({
                             resource: purpose.resource,
-                            method: catalogSoftwareResource?.representation?.method,
+                            method: catalogSoftwareResource?.representation
+                                ?.method,
                             endpoint,
                             data,
                             credential:
-                            catalogSoftwareResource?.representation?.credential,
+                                catalogSoftwareResource?.representation
+                                    ?.credential,
                             dataExchange,
                             representationQueryParams:
-                            catalogSoftwareResource.representation?.queryParams,
-                            proxy: catalogSoftwareResource?.representation?.proxy,
+                                catalogSoftwareResource.representation
+                                    ?.queryParams,
+                            proxy: catalogSoftwareResource?.representation
+                                ?.proxy,
                         })
                     );
 
                     consumerResponse = postConsumerData;
 
-                    await dataExchange.updateStatus(
+                    if (catalogSoftwareResource.isAPI) {
+                        if (apiResponseRepresentation) {
+                            await handle(
+                                providerImport(
+                                    dataExchange.providerEndpoint,
+                                    consumerResponse,
+                                    dataExchange._id.toString()
+                                )
+                            );
+                        }
+                    }
+
+                    await dataExchange?.updateStatus(
                         DataExchangeStatusEnum.IMPORT_SUCCESS
                     );
 
@@ -579,31 +631,19 @@ export const consumerImportService = async (props: {
 
                 break;
             }
-            default:
-                {
-                    await dataExchange.updateStatus(
-                        DataExchangeStatusEnum.CONSUMER_IMPORT_ERROR,
-                        'Representation type not supported'
-                    );
-                }
-
-                if (catalogSoftwareResource.isAPI) {
-                    if (apiResponseRepresentation) {
-                        const [providerImportData] = await handle(
-                            providerImport(
-                                dataExchange.providerEndpoint,
-                                consumerResponse,
-                                dataExchange._id.toString()
-                            )
-                        );
-                    }
-                    await dataExchange?.updateStatus(
-                        DataExchangeStatusEnum.IMPORT_SUCCESS
-                    );
-                }
+            case 'FTP': {
+                Logger.info({
+                    message: `Executing FTP for ${
+                        purpose.resource
+                    }, received data: ${JSON.stringify(data, null, 2)}`,
+                    location: 'consumerImportService',
+                });
 
                 break;
+            }
+            default: {
+                throw new Error('Representation type not supported');
+            }
         }
-        await dataExchange?.updateStatus(DataExchangeStatusEnum.IMPORT_SUCCESS);
     }
 };

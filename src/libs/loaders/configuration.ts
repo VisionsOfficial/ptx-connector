@@ -391,6 +391,47 @@ const reloadConfigurationFromFile = async () => {
     return conf;
 };
 
+// Get the AMQP configuration
+const getAmpq = () => {
+    const conf = getConfigFile();
+
+    if(!conf?.ampq?.host){
+        return null;
+    }
+
+    if(!conf?.ampq?.host.includes('amqp://')){
+        Logger.error({
+            message: `Invalid AMQP configuration in config file`,
+            location: 'getAmpq',
+        })
+        return null;
+    }
+
+    return conf?.ampq;
+}
+
+// Get the Kafka configuration
+const getKafka = () => {
+    const conf = getConfigFile();
+
+    if(!conf?.kafka?.brokers){
+        return null;
+    }
+
+    return conf?.kafka;
+}
+
+// Get the Kafka configuration
+const getWebsocket = () => {
+    const conf = getConfigFile();
+
+    if(!conf?.websocket?.uri){
+        return null;
+    }
+
+    return conf?.websocket;
+}
+
 export {
     getConfigFile,
     getSecretKey,
@@ -407,4 +448,7 @@ export {
     getRegistrationUri,
     getModalOrigins,
     getExpressLimitSize,
+    getAmpq,
+    getKafka,
+    getWebsocket,
 };

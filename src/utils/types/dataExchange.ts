@@ -1,10 +1,11 @@
 import { connection, Schema } from 'mongoose';
 import axios from 'axios';
 import { urlChecker } from '../urlChecker';
-import { getEndpoint } from '../../libs/loaders/configuration';
+import {getAmpq, getEndpoint} from '../../libs/loaders/configuration';
 import { ObjectId } from 'mongodb';
 import { handle } from '../../libs/loaders/handler';
 import { ContractServiceChain } from './contractServiceChain';
+import amqp from "amqplib";
 
 interface IData {
     serviceOffering?: string;
@@ -325,6 +326,7 @@ schema.methods.updateStatus = async function (
             error: this.error,
         }
     );
+
     return this.save();
 };
 

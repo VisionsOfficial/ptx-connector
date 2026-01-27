@@ -33,3 +33,23 @@ export const providerImport = async (
         consumerDataExchange,
     });
 };
+
+export const providerDSP = async (
+    providerEndpoint: string,
+    consumerDataExchange: string
+) => {
+    const agent = new https.Agent({
+        rejectUnauthorized: false,
+    });
+
+    return axios.post(
+        urlChecker(
+            providerEndpoint,
+            `provider/dsp`
+        ),
+        {
+            consumerDataExchange,
+        },
+        {httpsAgent: agent}
+    );
+}
