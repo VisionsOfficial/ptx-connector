@@ -27,7 +27,7 @@
         "postbuild": "mkdirp dist/src/keys/ && mkdirp dist/docs/ && mkdirp dist/src/public/uploads && [ -d src/keys ] && cp -r -n src/keys dist/src || true",
         "uid": "node uid.js",
         "generate-swagger": "ts-node generate-swagger.ts",
-        "tar": "tar -czf ca-pdc.tar.gz ./"
+        "tar": "tar --exclude=ca-pdc.tar.gz -czf ca-pdc.tar.gz ./"
     },
     "keywords": [],
     "author": "",
