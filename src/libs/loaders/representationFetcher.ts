@@ -273,7 +273,7 @@ export const postRepresentation = async (params: {
                     ? `${keyFromUrl}/${dataExchange.providerData.fileName}`
                     : dataExchange.providerData.fileName,
                 ContentType: dataExchange.providerData.mimetype,
-                Body: data,
+                Body: dataBody,
             });
 
             const response = await s3Client.send(command);

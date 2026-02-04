@@ -502,6 +502,12 @@ export const consumerImportService = async (props: {
 }) => {
     const { providerDataExchange, data, apiResponseRepresentation } = props;
 
+    // Fix: If data is an array of numbers (serialized Buffer), convert it back to Buffer
+    let processedData = data;
+    if (Array.isArray(data) && data.length > 0 && typeof data[0] === 'number') {
+        processedData = Buffer.from(data);
+    }
+
     //Get dataExchange
     const dataExchange = await DataExchange.findOne({
         providerDataExchange: providerDataExchange,
@@ -532,7 +538,7 @@ export const consumerImportService = async (props: {
                             method: catalogSoftwareResource?.representation
                                 ?.method,
                             endpoint,
-                            data,
+                            data: processedData,
                             credential:
                                 catalogSoftwareResource?.representation
                                     ?.credential,
@@ -607,7 +613,7 @@ export const consumerImportService = async (props: {
                     });
 
                     consumerResponse = await sql.unsafe(
-                        !sqlConfig?.query ? data : sqlConfig?.query
+                        !sqlConfig?.query ? processedData : sqlConfig?.query
                     );
 
                     await sql.end();
@@ -635,7 +641,11 @@ export const consumerImportService = async (props: {
                 Logger.info({
                     message: `Executing FTP for ${
                         purpose.resource
-                    }, received data: ${JSON.stringify(data, null, 2)}`,
+                    }, received data: ${JSON.stringify(
+                        processedData,
+                        null,
+                        2
+                    )}`,
                     location: 'consumerImportService',
                 });
 
