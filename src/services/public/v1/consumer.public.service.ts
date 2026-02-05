@@ -649,6 +649,10 @@ export const consumerImportService = async (props: {
                     location: 'consumerImportService',
                 });
 
+                await dataExchange.updateStatus(
+                    DataExchangeStatusEnum.IMPORT_SUCCESS
+                );
+
                 break;
             }
             default: {

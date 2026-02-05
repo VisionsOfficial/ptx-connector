@@ -16,7 +16,11 @@ import { ExchangeError } from '../../../libs/errors/exchangeError';
 import axios from 'axios';
 import { verifyPayloadDefault } from '../../../utils/validation/payloadValidation';
 import { ObjectId } from 'mongodb';
-import {amqpPublisher, kafkaPublisher, websocketPublisher} from "../../../utils/publisher";
+import {
+    amqpPublisher,
+    kafkaPublisher,
+    websocketPublisher,
+} from '../../../utils/publisher';
 
 /**
  * trigger the data exchange between provider and consumer in a bilateral or ecosystem contract
@@ -48,8 +52,7 @@ export const consumerExchange = async (
         let providerEndpoint: string;
 
         // ecosystem contract
-        if (contract.includes('contracts'))
-        {
+        if (contract.includes('contracts')) {
             const {
                 dataExchange: ecosystemDataExchange,
                 providerEndpoint: endpoint,
@@ -67,8 +70,7 @@ export const consumerExchange = async (
 
             dataExchange = ecosystemDataExchange;
             if (endpoint) providerEndpoint = endpoint;
-        } else
-        {
+        } else {
             const {
                 dataExchange: bilateralDataExchange,
                 providerEndpoint: endpoint,
@@ -165,25 +167,39 @@ export const consumerExchange = async (
                     500
                 );
             }
-            await handle(
+            const exportError = await handle(
                 providerExport(providerEndpoint, dataExchange._id.toString())
             );
+            if (exportError && exportError instanceof Error) {
+                throw exportError;
+            }
         }
 
         const startTime = Date.now();
-        const timeout =  (process.env.EXCHANGE_TIMEOUT ? parseInt(process.env.EXCHANGE_TIMEOUT) : 30) * 1000;
+        const timeout =
+            (process.env.EXCHANGE_TIMEOUT
+                ? parseInt(process.env.EXCHANGE_TIMEOUT)
+                : 30) * 1000;
         let message: string;
         let success = false;
         // return code 200 everything is ok
-        while (dataExchange.status === 'PENDING' || dataExchange.status === 'TRANSFER_STARTED') {
+        while (
+            dataExchange.status === 'PENDING' ||
+            dataExchange.status === 'TRANSFER_STARTED'
+        ) {
             if (Date.now() - startTime > timeout) {
-                message = `${(process.env.EXCHANGE_TIMEOUT ? parseInt(process.env.EXCHANGE_TIMEOUT) : 30)} sec Timeout reached.`;
+                message = `${
+                    process.env.EXCHANGE_TIMEOUT
+                        ? parseInt(process.env.EXCHANGE_TIMEOUT)
+                        : 30
+                } sec Timeout reached.`;
                 break;
             }
             dataExchange = await DataExchange.findById(dataExchange._id);
             if (dataExchange.status === 'IMPORT_SUCCESS') {
                 success = true;
             }
+            await new Promise((resolve) => setTimeout(resolve, 500)); // Add 500ms delay between checks
         }
 
         //Publisher
