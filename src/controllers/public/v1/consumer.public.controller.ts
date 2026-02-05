@@ -167,12 +167,16 @@ export const consumerExchange = async (
                     500
                 );
             }
-            const exportError = await handle(
-                providerExport(providerEndpoint, dataExchange._id.toString())
+            // Fire and forget - don't wait for provider response
+            // The status polling loop below will handle completion
+            providerExport(providerEndpoint, dataExchange._id.toString()).catch(
+                (err) => {
+                    Logger.error({
+                        message: `Provider export failed: ${err.message}`,
+                        location: 'consumerExchange - providerExport',
+                    });
+                }
             );
-            if (exportError && exportError instanceof Error) {
-                throw exportError;
-            }
         }
 
         const startTime = Date.now();
