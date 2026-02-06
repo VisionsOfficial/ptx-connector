@@ -1,40 +1,81 @@
 services:
   dataspace-connector:
-    container_name: dataspace-connector
     build:
       context: .
       dockerfile: docker/app/Dockerfile
       args:
         ENV: ${NODE_ENV}
-#    command: npm run dev
     restart: unless-stopped
     tty: true
     volumes:
       - './src/:/usr/src/app/src'
-    ports:
-      - 3002:${PORT}
-#    links:
-#      - mongodb
     environment:
       MONGO_URI: ${MONGO_URI}
-    networks:
-      - dataspace-connector
+      NAME: ${NAME}
+      DNS: ${DNS}
+      PORT: ${PORT}
+    depends_on:
+      - mongodb
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=web"
 
+      - "traefik.http.routers.${NAME}.rule=Host(`${DNS}`)"
+      - "traefik.http.routers.${NAME}.entrypoints=websecure"
+      - "traefik.http.routers.${NAME}.tls.certresolver=letsEncrypt"
+
+      - "traefik.http.services.${NAME}.loadbalancer.server.port=${PORT}"
+    networks:
+      - web
+      - internal
 
   mongodb:
-    container_name: "mongodb"
     build:
       context: .
       dockerfile: docker/mongodb/Dockerfile
-    #    Uncomment to connect mongodb container to mongo compass or another service
     restart: unless-stopped
-    ports:
-      - "27018:27017"
     volumes:
       - ./data:/data/db
     networks:
+      - internal
+
+  pdc-dashboard:
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=web"
+
+      - "traefik.http.routers.${NAME}-dashboard.rule=Host(`${DNS}`) && PathPrefix(`/dashboard`)"
+      - "traefik.http.routers.${NAME}-dashboard.entrypoints=websecure"
+      - "traefik.http.routers.${NAME}-dashboard.tls.certresolver=letsEncrypt"
+
+      - "traefik.http.middlewares.${NAME}-dashboard-strip.stripprefix.prefixes=/dashboard"
+      - "traefik.http.routers.${NAME}-dashboard.middlewares=${NAME}-dashboard-strip"
+
+      - "traefik.http.services.${NAME}-dashboard.loadbalancer.server.port=80"
+    networks:
+      - web
+      - internal
+
+  nginx-proxy:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:80"
+    volumes:
+      - ./nginx-proxy.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
       - dataspace-connector
+      - pdc-dashboard
+    networks:
+      - internal
+
 
 networks:
-  dataspace-connector:
-    external: false
+  web:
+    external: true
+  internal:
+    driver: bridge

@@ -476,27 +476,27 @@ export const consumerImportService = async (props: {
             getCatalogData(purpose.resource)
         );
 
-        //Import data to endpoint of softwareResource
-        const endpoint = catalogSoftwareResource?.representation?.url;
-
-        if (!endpoint) {
-            await dataExchange?.updateStatus(
-                DataExchangeStatusEnum.CONSUMER_IMPORT_ERROR
-            );
-        }
-
         let consumerResponse;
 
         switch (catalogSoftwareResource?.representation?.type) {
             case 'REST': {
-                try {
-                    const [postConsumerData] = await handle(
-                        postRepresentation({
-                            resource: purpose.resource,
-                            method: catalogSoftwareResource?.representation?.method,
-                            endpoint,
-                            data,
-                            credential:
+              try {
+                //Import data to endpoint of softwareResource
+                const endpoint = catalogSoftwareResource?.representation?.url;
+
+                if (!endpoint) {
+                    await dataExchange?.updateStatus(
+                        DataExchangeStatusEnum.CONSUMER_IMPORT_ERROR
+                    );
+                }
+
+                const [postConsumerData] = await handle(
+                    postRepresentation({
+                        resource: purpose.resource,
+                        method: catalogSoftwareResource?.representation?.method,
+                        endpoint,
+                        data,
+                        credential:
                             catalogSoftwareResource?.representation?.credential,
                             dataExchange,
                             representationQueryParams:
