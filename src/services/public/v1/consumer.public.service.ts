@@ -18,6 +18,7 @@ import { postRepresentation } from '../../../libs/loaders/representationFetcher'
 import { providerImport } from '../../../libs/third-party/provider';
 import { getCredentialByIdService } from '../../private/v1/credential.private.service';
 import postgres from 'postgres';
+import {exec} from "node:child_process";
 
 export const triggerBilateralFlow = async (props: {
     contract: string;
@@ -529,7 +530,7 @@ export const consumerImportService = async (props: {
 
         let consumerResponse;
 
-        switch (catalogSoftwareResource?.representation?.type) {
+        switch (catalogSoftwareResource?.representation?.type.toUpperCase()) {
             case 'REST': {
                 try {
                     const [postConsumerData] = await handle(
@@ -655,9 +656,73 @@ export const consumerImportService = async (props: {
 
                 break;
             }
+            case 'KAFKA': {
+                Logger.info({
+                    message: `Executing KAFKA for ${
+                        purpose.resource
+                    }, received data: ${JSON.stringify(
+                        processedData,
+                        null,
+                        2
+                    )}`,
+                    location: 'consumerImportService',
+                });
+
+                const kafkaConfig =
+                    catalogSoftwareResource?.representation?.kafka;
+                let command = kafkaConfig.script;
+
+                await new Promise<void>(
+                    (resolve, reject) => {
+                        exec(
+                            command,
+                            async (
+                                error,
+                                stdout,
+                                stderr
+                            ) => {
+                                if (error) {
+                                    Logger.error({
+                                        message: `Error executing Kafka script for ${purpose.resource}: ${error.message}`,
+                                        location:
+                                            'ProviderExportService',
+                                    });
+                                    reject(error);
+                                    return;
+                                }
+
+                                if (stderr) {
+                                    Logger.error({
+                                        message: `Kafka script stderr for ${purpose.resource}: ${stderr}`,
+                                        location:
+                                            'ProviderExportService',
+                                    });
+                                }
+
+                                if (stdout) {
+                                    Logger.info({
+                                        message: `Kafka script stdout for ${purpose.resource}: ${stdout}`,
+                                        location:
+                                            'ProviderExportService',
+                                    });
+                                }
+                                resolve();
+                            }
+                        );
+                    }
+                );
+
+                await dataExchange?.updateStatus(
+                    DataExchangeStatusEnum.TRANSFER_COMPLETED,
+                    data
+                );
+
+                break;
+            }
             default: {
                 throw new Error('Representation type not supported');
             }
+
         }
     }
 };

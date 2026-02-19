@@ -51,8 +51,8 @@ importers:
         specifier: ^16.3.1
         version: 16.4.5
       dpcp-library:
-        specifier: github:VisionsOfficial/data-processing-chain-protocol#fix/npm-i
-        version: https://codeload.github.com/VisionsOfficial/data-processing-chain-protocol/tar.gz/355dd8f2b5afb42e2d161aa9baa8767ca90a146d
+        specifier: github:Prometheus-X-association/data-processing-chain-protocol
+        version: https://codeload.github.com/Prometheus-X-association/data-processing-chain-protocol/tar.gz/bc821ca14a5a2ea0569662e122c57862a6fd0eb5
       express:
         specifier: ^4.18.2
         version: 4.19.2
@@ -1674,8 +1674,8 @@ packages:
     resolution: {integrity: sha512-ZmdL2rui+eB2YwhsWzjInR8LldtZHGDoQ1ugH85ppHKwpUHL7j7rN0Ti9NCnGiQbhaZ11FpR+7ao1dNsmduNUg==}
     engines: {node: '>=12'}
 
-  dpcp-library@https://codeload.github.com/VisionsOfficial/data-processing-chain-protocol/tar.gz/355dd8f2b5afb42e2d161aa9baa8767ca90a146d:
-    resolution: {tarball: https://codeload.github.com/VisionsOfficial/data-processing-chain-protocol/tar.gz/355dd8f2b5afb42e2d161aa9baa8767ca90a146d}
+  dpcp-library@https://codeload.github.com/Prometheus-X-association/data-processing-chain-protocol/tar.gz/bc821ca14a5a2ea0569662e122c57862a6fd0eb5:
+    resolution: {tarball: https://codeload.github.com/Prometheus-X-association/data-processing-chain-protocol/tar.gz/bc821ca14a5a2ea0569662e122c57862a6fd0eb5}
     version: 1.4.1
 
   dunder-proto@1.0.1:
@@ -5912,7 +5912,7 @@ snapshots:
 
   dotenv@16.4.5: {}
 
-  dpcp-library@https://codeload.github.com/VisionsOfficial/data-processing-chain-protocol/tar.gz/355dd8f2b5afb42e2d161aa9baa8767ca90a146d: {}
+  dpcp-library@https://codeload.github.com/Prometheus-X-association/data-processing-chain-protocol/tar.gz/bc821ca14a5a2ea0569662e122c57862a6fd0eb5: {}
 
   dunder-proto@1.0.1:
     dependencies:

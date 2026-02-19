@@ -95,7 +95,7 @@ export const ProviderExportService = async (
                             Regexes.urlParams
                         )
                     ) {
-                        switch (endpointData?.representation?.type) {
+                        switch (endpointData?.representation?.type.toUpperCase()) {
                             case 'REST': {
                                 const [getProviderData, responseHeaders] =
                                     await handle(
@@ -243,7 +243,7 @@ export const ProviderExportService = async (
                                 try {
                                     // FTP implementation placeholder
                                     Logger.info({
-                                        message: `FTP representation type selected for ${resourceSD}, but not implemented.`,
+                                        message: `FTP representation type selected for ${resourceSD}.`,
                                         location: 'ProviderExportService',
                                     });
 
@@ -252,7 +252,7 @@ export const ProviderExportService = async (
 
                                     if (!ftpConfig.command) {
                                         new Error(
-                                            'Aucune commande définie dans ftpConfig.'
+                                            'No command defined in ftp configuration.'
                                         );
                                         return;
                                     }
@@ -372,49 +372,134 @@ export const ProviderExportService = async (
                                 }
                                 break;
                             }
-                            // case 'KAFKA': {
-                            //     try {
-                            //         // Kafka implementation placeholder
-                            //         Logger.info( {
-                            //             message: `KAFKA representation type selected for ${resourceSD}, but not implemented.`,
-                            //             location: 'ProviderExportService',
-                            //         });
-                            //
-                            //         const kafkaConfig =
-                            //             endpointData?.representation?.kafka;
-                            //
-                            //         if (!kafkaConfig.brokers) {
-                            //             let message = `No kafka brokers defined for ${resourceSD} in catalog`
-                            //             Logger.error({
-                            //                 message: message,
-                            //                 location: 'ProviderExportService',
-                            //             });
-                            //            throw new Error(message)
-                            //         }
-                            //
-                            //         if (!kafkaConfig?.topic) {
-                            //             let message = `No kafka topic defined for ${resourceSD} in catalog`
-                            //             Logger.error({
-                            //                 message: message,
-                            //                 location: 'ProviderExportService',
-                            //             });
-                            //             throw new Error(message)
-                            //         }
-                            //
-                            //         data = kafkaConfig;
-                            //
-                            //         await kafkaPublisher(dataExchange);
-                            //
-                            //     } catch (e) {
-                            //         Logger.error({
-                            //             message: `Error retrieving KAFKA data for ${resourceSD}: ${e.message}`,
-                            //             location: 'ProviderExportService',
-                            //         });
-                            //
-                            //         throw e;
-                            //     }
-                            //     break;
-                            // }
+                            case 'KAFKA': {
+                                try {
+                                    Logger.info({
+                                        message: `KAFKA representation type selected for ${resourceSD}.`,
+                                        location: 'ProviderExportService',
+                                    });
+
+                                    const kafkaConfig =
+                                        endpointData?.representation?.kafka;
+
+                                    if (!kafkaConfig.script) {
+                                        new Error(
+                                            'No script defined in kafka configuration.'
+                                        );
+                                        return;
+                                    }
+                                    for (const purpose of dataExchange.purposes) {
+                                        const [catalogSoftwareResource] =
+                                            await handle(
+                                                getCatalogData(purpose.resource)
+                                            );
+
+                                        if (
+                                            catalogSoftwareResource
+                                                .representation.type.toUpperCase() !== 'KAFKA'
+                                        ) {
+                                            Logger.warn({
+                                                message: `Skipping KAFKA script execution for purpose ${purpose.resource} with representation type ${catalogSoftwareResource.representation.type}`,
+                                                location:
+                                                    'ProviderExportService',
+                                            });
+                                            continue;
+                                        }
+
+                                        const serviceRepresentation =
+                                            catalogSoftwareResource
+                                                ?.representation.kafka;
+
+                                        let command = kafkaConfig.script;
+
+                                        const matches =
+                                            command.match(/{\w+(\.\w+)?}/g);
+                                        if (matches) {
+                                            matches.forEach((match: string) => {
+                                                const key = match.replace(
+                                                    /[{}]/g,
+                                                    ''
+                                                );
+                                                let value;
+                                                if (
+                                                    key.startsWith('service.')
+                                                ) {
+                                                    const subKey =
+                                                        key.split('.')[1];
+                                                    value =
+                                                        serviceRepresentation[
+                                                            subKey
+                                                            ];
+                                                } else {
+                                                    value = kafkaConfig[key];
+                                                }
+                                                if (value !== undefined) {
+                                                    command = command.replace(
+                                                        match,
+                                                        value
+                                                    );
+                                                }
+                                            });
+                                        }
+
+                                        await dataExchange?.updateStatus(
+                                            DataExchangeStatusEnum.TRANSFER_STARTED
+                                        );
+
+                                        await new Promise<void>(
+                                            (resolve, reject) => {
+                                                exec(
+                                                    command,
+                                                    async (
+                                                        error,
+                                                        stdout,
+                                                        stderr
+                                                    ) => {
+                                                        if (error) {
+                                                            Logger.error({
+                                                                message: `Error executing Kafka script for ${resourceSD}: ${error.message}`,
+                                                                location:
+                                                                    'ProviderExportService',
+                                                            });
+                                                            reject(error);
+                                                            return;
+                                                        }
+
+                                                        if (stderr) {
+                                                            Logger.error({
+                                                                message: `Kafka script stderr for ${resourceSD}: ${stderr}`,
+                                                                location:
+                                                                    'ProviderExportService',
+                                                            });
+                                                        }
+
+                                                        if (stdout) {
+                                                            Logger.info({
+                                                                message: `Kafka script stdout for ${resourceSD}: ${stdout}`,
+                                                                location:
+                                                                    'ProviderExportService',
+                                                            });
+
+                                                            data = stdout;
+                                                        }
+                                                        resolve();
+                                                    }
+                                                );
+                                            }
+                                        );
+                                    }
+
+                                    break;
+                                } catch (e) {
+                                    Logger.error({
+                                        message: `Error retrieving FTP data for ${resourceSD}: ${e.message}`,
+                                        location: 'ProviderExportService',
+                                    });
+
+                                    throw e;
+                                }
+                                break;
+                            }
                             // case 'WEBSOCKET': {
                             //     try {
                             //         // WEBSOCKET implementation placeholder
