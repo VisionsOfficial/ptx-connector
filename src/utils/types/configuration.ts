@@ -20,6 +20,13 @@ interface IConfiguration {
     consentJWT?: string;
     expressLimitSize?: string;
     serviceChainAdapter?: string;
+    proxy?: {
+        host: string;
+        port: number;
+        protocol: string;
+        username?: string;
+        password?: string;
+    };
 }
 
 const ModalOriginSchema = new Schema({

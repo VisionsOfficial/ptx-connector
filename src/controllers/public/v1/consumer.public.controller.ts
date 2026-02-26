@@ -11,11 +11,12 @@ import {
     triggerEcosystemFlow,
 } from '../../../services/public/v1/consumer.public.service';
 import { ProviderExportService } from '../../../services/public/v1/provider.public.service';
-import { getEndpoint } from '../../../libs/loaders/configuration';
+import {getEndpoint, getProxy} from '../../../libs/loaders/configuration';
 import { ExchangeError } from '../../../libs/errors/exchangeError';
 import axios from 'axios';
 import { verifyPayloadDefault } from '../../../utils/validation/payloadValidation';
 import { ObjectId } from 'mongodb';
+import {checkConnectorProxy} from "../../../libs/third-party/proxy";
 
 /**
  * trigger the data exchange between provider and consumer in a bilateral or ecosystem contract
@@ -95,7 +96,9 @@ export const consumerExchange = async (
             for (const service of dataExchange.serviceChain.services) {
                 // Get the infrastructure service information
                 const [participantResponse] = await handle(
-                    axios.get(service.participant)
+                    axios.get(service.participant, (await checkConnectorProxy({
+                        configProxy: getProxy()
+                    })))
                 );
 
                 // Find the participant endpoint
@@ -116,7 +119,9 @@ export const consumerExchange = async (
                     for (const prechain of service.pre) {
                         for (const element of prechain) {
                             const [participantResponse] = await handle(
-                                axios.get(element.participant)
+                                axios.get(element.participant, (await checkConnectorProxy({
+                                    configProxy: getProxy()
+                                })))
                             );
 
                             // Find the participant endpoint

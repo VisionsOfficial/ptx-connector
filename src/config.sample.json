@@ -16,5 +16,12 @@
         }
     ],
     "expressLimitSize": "",
-    "serviceChainAdapter": false
+    "serviceChainAdapter": false,
+    "proxy": {
+        "host": "",
+        "port": "",
+        "protocol": "",
+        "username": "",
+        "password": ""
+    }
 }
