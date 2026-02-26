@@ -11,6 +11,7 @@ import { Credential } from '../../utils/types/credential';
 import { urlChecker } from '../../utils/urlChecker';
 import { handle } from './handler';
 import { config } from '../../config/environment';
+import { checkConnectorProxy } from '../third-party/proxy';
 
 /**
  * Get the configuration file
@@ -141,10 +142,20 @@ const getRegistrationUri = async () => {
     else return getConfigFile()?.registrationUri;
 };
 
+/**
+ * Get the billing uri
+ */
 const getBillingUri = async () => {
     const conf = await Configuration.findOne({}).lean();
     if (conf?.billingUri) return conf?.billingUri;
     else return getConfigFile()?.billingUri;
+};
+
+/**
+ * Get the proxy configuration
+ */
+const getProxy = () => {
+    return getConfigFile()?.proxy;
 };
 
 /**
@@ -276,6 +287,9 @@ const registerSelfDescription = async () => {
                         headers: {
                             Authorization: `Bearer ${token}`,
                         },
+                        ...(await checkConnectorProxy({
+                            configProxy: getProxy(),
+                        })),
                     }
                 )
             );
@@ -291,6 +305,9 @@ const registerSelfDescription = async () => {
                         headers: {
                             Authorization: `Bearer ${token}`,
                         },
+                        ...(await checkConnectorProxy({
+                            configProxy: getProxy(),
+                        })),
                     }
                 );
 
@@ -395,42 +412,42 @@ const reloadConfigurationFromFile = async () => {
 const getAmpq = () => {
     const conf = getConfigFile();
 
-    if(!conf?.ampq?.host){
+    if (!conf?.ampq?.host) {
         return null;
     }
 
-    if(!conf?.ampq?.host.includes('amqp://')){
+    if (!conf?.ampq?.host.includes('amqp://')) {
         Logger.error({
-            message: `Invalid AMQP configuration in config file`,
+            message: 'Invalid AMQP configuration in config file',
             location: 'getAmpq',
-        })
+        });
         return null;
     }
 
     return conf?.ampq;
-}
+};
 
 // Get the Kafka configuration
 const getKafka = () => {
     const conf = getConfigFile();
 
-    if(!conf?.kafka?.brokers){
+    if (!conf?.kafka?.brokers) {
         return null;
     }
 
     return conf?.kafka;
-}
+};
 
 // Get the Kafka configuration
 const getWebsocket = () => {
     const conf = getConfigFile();
 
-    if(!conf?.websocket?.uri){
+    if (!conf?.websocket?.uri) {
         return null;
     }
 
     return conf?.websocket;
-}
+};
 
 export {
     getConfigFile,
@@ -451,4 +468,5 @@ export {
     getAmpq,
     getKafka,
     getWebsocket,
+    getProxy,
 };

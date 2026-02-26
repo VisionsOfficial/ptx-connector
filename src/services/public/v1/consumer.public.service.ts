@@ -8,7 +8,7 @@ import {
     IServiceChain,
     IParams,
 } from '../../../utils/types/dataExchange';
-import { getEndpoint } from '../../../libs/loaders/configuration';
+import { getEndpoint, getProxy } from '../../../libs/loaders/configuration';
 import { getCatalogData } from '../../../libs/third-party/catalog';
 import { ExchangeError } from '../../../libs/errors/exchangeError';
 import { getContract } from '../../../libs/third-party/contract';
@@ -18,7 +18,8 @@ import { postRepresentation } from '../../../libs/loaders/representationFetcher'
 import { providerImport } from '../../../libs/third-party/provider';
 import { getCredentialByIdService } from '../../private/v1/credential.private.service';
 import postgres from 'postgres';
-import {exec} from "node:child_process";
+import { checkConnectorProxy } from '../../../libs/third-party/proxy';
+import { exec } from 'node:child_process';
 
 export const triggerBilateralFlow = async (props: {
     contract: string;
@@ -45,15 +46,30 @@ export const triggerBilateralFlow = async (props: {
     const [contractResponse] = await handle(getContract(contract));
     // get Provider endpoint
     const [providerResponse] = await handle(
-        axios.get(contractResponse.dataProvider)
+        axios.get(
+            contractResponse.dataProvider,
+            await checkConnectorProxy({
+                configProxy: getProxy(),
+            })
+        )
     );
 
     const [resourceResponse] = await handle(
-        axios.get(contractResponse.serviceOffering)
+        axios.get(
+            contractResponse.serviceOffering,
+            await checkConnectorProxy({
+                configProxy: getProxy(),
+            })
+        )
     );
 
     const [purposeResponse] = await handle(
-        axios.get(contractResponse.purpose[0].purpose)
+        axios.get(
+            contractResponse.purpose[0].purpose,
+            await checkConnectorProxy({
+                configProxy: getProxy(),
+            })
+        )
     );
 
     if (!providerResponse?.dataspaceEndpoint) {
@@ -103,7 +119,12 @@ export const triggerBilateralFlow = async (props: {
         await dataExchange.createDataExchangeToOtherParticipant('provider');
     } else {
         const [consumerResponse] = await handle(
-            axios.get(contractResponse.dataConsumer)
+            axios.get(
+                contractResponse.dataConsumer,
+                await checkConnectorProxy({
+                    configProxy: getProxy(),
+                })
+            )
         );
         dataExchange = await DataExchange.create({
             consumerEndpoint: consumerResponse?.dataspaceEndpoint,
@@ -272,7 +293,12 @@ export const triggerEcosystemFlow = async (props: {
     );
 
     const [consumerSelfDescriptionResponse] = await handle(
-        axios.get(consumerSelfDescription.participant)
+        axios.get(
+            consumerSelfDescription.participant,
+            await checkConnectorProxy({
+                configProxy: getProxy(),
+            })
+        )
     );
 
     //search Provider Endpoint
@@ -285,7 +311,12 @@ export const triggerEcosystemFlow = async (props: {
     );
 
     const [providerSelfDescriptionResponse] = await handle(
-        axios.get(providerSelfDescription.participant)
+        axios.get(
+            providerSelfDescription.participant,
+            await checkConnectorProxy({
+                configProxy: getProxy(),
+            })
+        )
     );
 
     // Verify PII
@@ -308,6 +339,12 @@ export const triggerEcosystemFlow = async (props: {
                 consumerSelfDescriptionResponse?.dataspaceEndpoint,
             providerEndpoint:
                 providerSelfDescriptionResponse?.dataspaceEndpoint,
+            providerProxy:
+                providerSelfDescriptionResponse?.dataspaceConnectorProxy ??
+                null,
+            consumerProxy:
+                consumerSelfDescriptionResponse?.dataspaceConnectorProxy ??
+                null,
             resources: mappedDataResources,
             purposes: mappedSoftwareResources,
             purposeId: purposeId,
@@ -327,6 +364,12 @@ export const triggerEcosystemFlow = async (props: {
         dataExchange = await DataExchange.create({
             providerEndpoint:
                 providerSelfDescriptionResponse?.dataspaceEndpoint,
+            providerProxy:
+                providerSelfDescriptionResponse?.dataspaceConnectorProxy ??
+                null,
+            consumerProxy:
+                consumerSelfDescriptionResponse?.dataspaceConnectorProxy ??
+                null,
             resources: mappedDataResources,
             purposes: mappedSoftwareResources,
             purposeId: purposeId,
@@ -346,6 +389,12 @@ export const triggerEcosystemFlow = async (props: {
         dataExchange = await DataExchange.create({
             consumerEndpoint:
                 consumerSelfDescriptionResponse?.dataspaceEndpoint,
+            providerProxy:
+                providerSelfDescriptionResponse?.dataspaceConnectorProxy ??
+                null,
+            consumerProxy:
+                consumerSelfDescriptionResponse?.dataspaceConnectorProxy ??
+                null,
             resources: mappedDataResources,
             purposes: mappedSoftwareResources,
             purposeId: purposeId,
@@ -670,47 +719,35 @@ export const consumerImportService = async (props: {
 
                 const kafkaConfig =
                     catalogSoftwareResource?.representation?.kafka;
-                let command = kafkaConfig.script;
+                const command = kafkaConfig.script;
 
-                await new Promise<void>(
-                    (resolve, reject) => {
-                        exec(
-                            command,
-                            async (
-                                error,
-                                stdout,
-                                stderr
-                            ) => {
-                                if (error) {
-                                    Logger.error({
-                                        message: `Error executing Kafka script for ${purpose.resource}: ${error.message}`,
-                                        location:
-                                            'ProviderExportService',
-                                    });
-                                    reject(error);
-                                    return;
-                                }
+                await new Promise<void>((resolve, reject) => {
+                    exec(command, async (error, stdout, stderr) => {
+                        if (error) {
+                            Logger.error({
+                                message: `Error executing Kafka script for ${purpose.resource}: ${error.message}`,
+                                location: 'ProviderExportService',
+                            });
+                            reject(error);
+                            return;
+                        }
 
-                                if (stderr) {
-                                    Logger.error({
-                                        message: `Kafka script stderr for ${purpose.resource}: ${stderr}`,
-                                        location:
-                                            'ProviderExportService',
-                                    });
-                                }
+                        if (stderr) {
+                            Logger.error({
+                                message: `Kafka script stderr for ${purpose.resource}: ${stderr}`,
+                                location: 'ProviderExportService',
+                            });
+                        }
 
-                                if (stdout) {
-                                    Logger.info({
-                                        message: `Kafka script stdout for ${purpose.resource}: ${stdout}`,
-                                        location:
-                                            'ProviderExportService',
-                                    });
-                                }
-                                resolve();
-                            }
-                        );
-                    }
-                );
+                        if (stdout) {
+                            Logger.info({
+                                message: `Kafka script stdout for ${purpose.resource}: ${stdout}`,
+                                location: 'ProviderExportService',
+                            });
+                        }
+                        resolve();
+                    });
+                });
 
                 await dataExchange?.updateStatus(
                     DataExchangeStatusEnum.TRANSFER_COMPLETED,
@@ -722,7 +759,6 @@ export const consumerImportService = async (props: {
             default: {
                 throw new Error('Representation type not supported');
             }
-
         }
     }
 };

@@ -17,5 +17,13 @@
     ],
     "expressLimitSize": "",
     "serviceChainAdapter": false,
-    "serviceChainAdapterTimeout": 3000
+    "serviceChainAdapterTimeout": 3000,
+    "serviceChainAdapter": false,
+    "proxy": {
+        "host": "",
+        "port": "",
+        "protocol": "",
+        "username": "",
+        "password": ""
+    }
 }
