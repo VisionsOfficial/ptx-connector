@@ -47,6 +47,12 @@ const BYTE_COVERAGE_NOTE =
 const serviceChainFilter = { 'serviceChain.services.0': { $exists: true } };
 const simpleFilter = { 'serviceChain.services.0': { $exists: false } };
 
+/**
+ * Returns a global overview of all data exchanges:
+ * total count, completed count, successful count, global success rate,
+ * total bytes transferred, and a breakdown between simple and service-chain types.
+ * @returns Promise<KpiOverview>
+ */
 export const getKpiOverviewService = async (): Promise<KpiOverview> => {
     const [result] = await DataExchange.aggregate([
         {
@@ -111,6 +117,15 @@ export const getKpiOverviewService = async (): Promise<KpiOverview> => {
     };
 };
 
+/**
+ * Returns exchange counts and success rates grouped by service offering URI.
+ * Supports two grouping modes:
+ * - 'resource': groups by the provider's resource offering (default)
+ * - 'purpose': groups by the consumer's purpose offering
+ * Results are sorted by total exchange count descending.
+ * @param {'resource' | 'purpose'} type - Which offering dimension to group by
+ * @returns Promise<KpiByOffer[]>
+ */
 export const getKpiByOfferService = async (
     type: 'resource' | 'purpose' = 'resource'
 ): Promise<KpiByOffer[]> => {
@@ -155,6 +170,13 @@ export const getKpiByOfferService = async (
     }));
 };
 
+/**
+ * Returns exchange counts and success rate for service-chain exchanges only.
+ * A service-chain exchange is any DataExchange document whose
+ * serviceChain.services array contains at least one entry.
+ * Note: each individual step in a chain is counted as a separate exchange.
+ * @returns Promise<KpiServiceChain>
+ */
 export const getKpiServiceChainService = async (): Promise<KpiServiceChain> => {
     const [result] = await DataExchange.aggregate([
         { $match: serviceChainFilter },
@@ -187,6 +209,12 @@ export const getKpiServiceChainService = async (): Promise<KpiServiceChain> => {
     };
 };
 
+/**
+ * Returns exchange counts and success rate for simple (bilateral) exchanges only.
+ * A simple exchange is any DataExchange document whose
+ * serviceChain.services array is absent or empty.
+ * @returns Promise<KpiSimple>
+ */
 export const getKpiSimpleService = async (): Promise<KpiSimple> => {
     const [result] = await DataExchange.aggregate([
         { $match: simpleFilter },
@@ -216,6 +244,14 @@ export const getKpiSimpleService = async (): Promise<KpiSimple> => {
     };
 };
 
+/**
+ * Returns total bytes transferred and a daily exchange count time-series.
+ * An optional date range can be supplied to narrow the time window.
+ * Note: byte totals only cover REST non-service-chain exchanges (where providerData.size is set).
+ * @param {string} [from] - Start of the date range as an ISO 8601 string (inclusive)
+ * @param {string} [to]   - End of the date range as an ISO 8601 string (inclusive)
+ * @returns Promise<KpiVolume>
+ */
 export const getKpiVolumeService = async (
     from?: string,
     to?: string
@@ -257,7 +293,7 @@ export const getKpiVolumeService = async (
                             _id: {
                                 $dateToString: {
                                     format: '%Y-%m-%d',
-                                    date: '$createdAt',
+                                    date: { $toDate: '$createdAt' },
                                 },
                             },
                             count: { $sum: 1 },
