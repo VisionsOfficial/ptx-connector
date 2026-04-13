@@ -291,6 +291,62 @@ class ApiService {
             throw error;
         }
     }
+
+    // KPI endpoints
+    async getKpiOverview() {
+        try {
+            const response = await this.api.get(
+                '/private/kpis/exchanges/overview'
+            );
+            return response.data.content || response.data;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async getKpiSimple() {
+        try {
+            const response = await this.api.get(
+                '/private/kpis/exchanges/simple'
+            );
+            return response.data.content || response.data;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async getKpiServiceChain() {
+        try {
+            const response = await this.api.get(
+                '/private/kpis/exchanges/service-chain'
+            );
+            return response.data.content || response.data;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async getKpiByOffer(type: 'resource' | 'purpose' = 'resource') {
+        try {
+            const response = await this.api.get(
+                `/private/kpis/exchanges/by-offer?type=${type}`
+            );
+            return response.data.content || response.data;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async getKpiVolume() {
+        try {
+            const response = await this.api.get(
+                '/private/kpis/exchanges/volume'
+            );
+            return response.data.content || response.data;
+        } catch (error) {
+            throw error;
+        }
+    }
 }
 
 export const apiService = new ApiService();
