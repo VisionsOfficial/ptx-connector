@@ -2,7 +2,7 @@ import axios from 'axios';
 import {
     getAppKey,
     getCatalogUri,
-    getEndpoint,
+    getEndpoint, getProxy,
     getSecretKey,
     getServiceKey,
 } from '../loaders/configuration';
@@ -10,9 +10,12 @@ import { generateBearerTokenFromSecret } from '../jwt';
 import { handle } from '../loaders/handler';
 import { urlChecker } from '../../utils/urlChecker';
 import { Logger } from '../loggers';
+import {checkConnectorProxy} from "./proxy";
 
 export const getCatalogData = async (endpoint: string, options?: any) => {
-    return axios.get(endpoint, options);
+    return axios.get(endpoint, {...options, ...(await checkConnectorProxy({
+        configProxy: getProxy()
+    }))});
 };
 
 /**
@@ -44,6 +47,9 @@ export const getParticipant = async () => {
                         headers: {
                             Authorization: `Bearer ${token}`,
                         },
+                        ...(await checkConnectorProxy({
+                            configProxy: getProxy()
+                        }))
                     }
                 )
             );

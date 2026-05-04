@@ -8,7 +8,7 @@ import {
     IServiceChain,
     IParams,
 } from '../../../utils/types/dataExchange';
-import { getEndpoint } from '../../../libs/loaders/configuration';
+import { getEndpoint, getProxy } from '../../../libs/loaders/configuration';
 import { getCatalogData } from '../../../libs/third-party/catalog';
 import { ExchangeError } from '../../../libs/errors/exchangeError';
 import { getContract } from '../../../libs/third-party/contract';
@@ -18,6 +18,8 @@ import { postRepresentation } from '../../../libs/loaders/representationFetcher'
 import { providerImport } from '../../../libs/third-party/provider';
 import { getCredentialByIdService } from '../../private/v1/credential.private.service';
 import postgres from 'postgres';
+import { checkConnectorProxy } from '../../../libs/third-party/proxy';
+import { exec } from 'node:child_process';
 
 export const triggerBilateralFlow = async (props: {
     contract: string;
@@ -44,15 +46,30 @@ export const triggerBilateralFlow = async (props: {
     const [contractResponse] = await handle(getContract(contract));
     // get Provider endpoint
     const [providerResponse] = await handle(
-        axios.get(contractResponse.dataProvider)
+        axios.get(
+            contractResponse.dataProvider,
+            await checkConnectorProxy({
+                configProxy: getProxy(),
+            })
+        )
     );
 
     const [resourceResponse] = await handle(
-        axios.get(contractResponse.serviceOffering)
+        axios.get(
+            contractResponse.serviceOffering,
+            await checkConnectorProxy({
+                configProxy: getProxy(),
+            })
+        )
     );
 
     const [purposeResponse] = await handle(
-        axios.get(contractResponse.purpose[0].purpose)
+        axios.get(
+            contractResponse.purpose[0].purpose,
+            await checkConnectorProxy({
+                configProxy: getProxy(),
+            })
+        )
     );
 
     if (!providerResponse?.dataspaceEndpoint) {
@@ -102,7 +119,12 @@ export const triggerBilateralFlow = async (props: {
         await dataExchange.createDataExchangeToOtherParticipant('provider');
     } else {
         const [consumerResponse] = await handle(
-            axios.get(contractResponse.dataConsumer)
+            axios.get(
+                contractResponse.dataConsumer,
+                await checkConnectorProxy({
+                    configProxy: getProxy(),
+                })
+            )
         );
         dataExchange = await DataExchange.create({
             consumerEndpoint: consumerResponse?.dataspaceEndpoint,
@@ -209,6 +231,42 @@ export const triggerEcosystemFlow = async (props: {
         );
     }
 
+    const contractMembers = contractResponse.members.map(
+        (e: any) => e.participant
+    );
+
+    if (contractMembers.length === 0) {
+        throw new ExchangeError(
+            'No members found in the contract',
+            'triggerEcosystemFlow',
+            500
+        );
+    }
+
+    if (
+        resourceExists &&
+        resourceExists.participant &&
+        !contractMembers.includes(resourceExists.participant)
+    ) {
+        throw new ExchangeError(
+            'Participant associated to the resource is not part of the contract',
+            'triggerEcosystemFlow',
+            500
+        );
+    }
+
+    if (
+        purposeExists &&
+        purposeExists.participant &&
+        !contractMembers.includes(purposeExists.participant)
+    ) {
+        throw new ExchangeError(
+            'Participant associated to the purpose is not part of the contract',
+            'triggerEcosystemFlow',
+            500
+        );
+    }
+
     const [serviceOfferingResponse] = await handle(getCatalogData(resourceId));
     const [purposeResponse] = await handle(getCatalogData(purposeId));
 
@@ -235,7 +293,12 @@ export const triggerEcosystemFlow = async (props: {
     );
 
     const [consumerSelfDescriptionResponse] = await handle(
-        axios.get(consumerSelfDescription.participant)
+        axios.get(
+            consumerSelfDescription.participant,
+            await checkConnectorProxy({
+                configProxy: getProxy(),
+            })
+        )
     );
 
     //search Provider Endpoint
@@ -248,7 +311,12 @@ export const triggerEcosystemFlow = async (props: {
     );
 
     const [providerSelfDescriptionResponse] = await handle(
-        axios.get(providerSelfDescription.participant)
+        axios.get(
+            providerSelfDescription.participant,
+            await checkConnectorProxy({
+                configProxy: getProxy(),
+            })
+        )
     );
 
     // Verify PII
@@ -271,6 +339,12 @@ export const triggerEcosystemFlow = async (props: {
                 consumerSelfDescriptionResponse?.dataspaceEndpoint,
             providerEndpoint:
                 providerSelfDescriptionResponse?.dataspaceEndpoint,
+            providerProxy:
+                providerSelfDescriptionResponse?.dataspaceConnectorProxy ??
+                null,
+            consumerProxy:
+                consumerSelfDescriptionResponse?.dataspaceConnectorProxy ??
+                null,
             resources: mappedDataResources,
             purposes: mappedSoftwareResources,
             purposeId: purposeId,
@@ -290,6 +364,12 @@ export const triggerEcosystemFlow = async (props: {
         dataExchange = await DataExchange.create({
             providerEndpoint:
                 providerSelfDescriptionResponse?.dataspaceEndpoint,
+            providerProxy:
+                providerSelfDescriptionResponse?.dataspaceConnectorProxy ??
+                null,
+            consumerProxy:
+                consumerSelfDescriptionResponse?.dataspaceConnectorProxy ??
+                null,
             resources: mappedDataResources,
             purposes: mappedSoftwareResources,
             purposeId: purposeId,
@@ -309,6 +389,12 @@ export const triggerEcosystemFlow = async (props: {
         dataExchange = await DataExchange.create({
             consumerEndpoint:
                 consumerSelfDescriptionResponse?.dataspaceEndpoint,
+            providerProxy:
+                providerSelfDescriptionResponse?.dataspaceConnectorProxy ??
+                null,
+            consumerProxy:
+                consumerSelfDescriptionResponse?.dataspaceConnectorProxy ??
+                null,
             resources: mappedDataResources,
             purposes: mappedSoftwareResources,
             purposeId: purposeId,
@@ -467,6 +553,12 @@ export const consumerImportService = async (props: {
 }) => {
     const { providerDataExchange, data, apiResponseRepresentation } = props;
 
+    // Fix: If data is an array of numbers (serialized Buffer), convert it back to Buffer
+    let processedData = data;
+    if (Array.isArray(data) && data.length > 0 && typeof data[0] === 'number') {
+        processedData = Buffer.from(data);
+    }
+
     //Get dataExchange
     const dataExchange = await DataExchange.findOne({
         providerDataExchange: providerDataExchange,
@@ -477,41 +569,71 @@ export const consumerImportService = async (props: {
             getCatalogData(purpose.resource)
         );
 
+        //Import data to endpoint of softwareResource
+        const endpoint = catalogSoftwareResource?.representation?.url;
+
         let consumerResponse;
 
-        switch (catalogSoftwareResource?.representation?.type) {
+        switch (catalogSoftwareResource?.representation?.type.toUpperCase()) {
             case 'REST': {
-                //Import data to endpoint of softwareResource
-                const endpoint = catalogSoftwareResource?.representation?.url;
+                try {
+                    if (!endpoint) {
+                        await dataExchange?.updateStatus(
+                            DataExchangeStatusEnum.CONSUMER_IMPORT_ERROR
+                        );
+                    }
 
-                if (!endpoint) {
-                    await dataExchange?.updateStatus(
-                        DataExchangeStatusEnum.CONSUMER_IMPORT_ERROR
+                    const [postConsumerData] = await handle(
+                        postRepresentation({
+                            resource: purpose.resource,
+                            method: catalogSoftwareResource?.representation
+                                ?.method,
+                            endpoint,
+                            data: processedData,
+                            credential:
+                                catalogSoftwareResource?.representation
+                                    ?.credential,
+                            dataExchange,
+                            representationQueryParams:
+                                catalogSoftwareResource.representation
+                                    ?.queryParams,
+                            proxy: catalogSoftwareResource?.representation
+                                ?.proxy,
+                        })
                     );
+
+                    consumerResponse = postConsumerData;
+
+                    if (catalogSoftwareResource.isAPI) {
+                        if (apiResponseRepresentation) {
+                            await handle(
+                                providerImport(
+                                    dataExchange.providerEndpoint,
+                                    consumerResponse,
+                                    dataExchange._id.toString()
+                                )
+                            );
+                        }
+                    }
+
+                    await dataExchange?.updateStatus(
+                        DataExchangeStatusEnum.IMPORT_SUCCESS
+                    );
+
+                    break;
+                } catch (e) {
+                    Logger.error({
+                        message: `Error when trying to consume data ${purpose.resource}: ${e.message}`,
+                        location: 'consumerImportService',
+                    });
+                    await dataExchange?.updateStatus(
+                        DataExchangeStatusEnum.PROVIDER_EXPORT_ERROR,
+                        e.message,
+                        await getEndpoint()
+                    );
+
+                    throw e;
                 }
-
-                const [postConsumerData] = await handle(
-                    postRepresentation({
-                        resource: purpose.resource,
-                        method: catalogSoftwareResource?.representation?.method,
-                        endpoint,
-                        data,
-                        credential:
-                            catalogSoftwareResource?.representation?.credential,
-                        dataExchange,
-                        representationQueryParams:
-                            catalogSoftwareResource.representation?.queryParams,
-                        proxy: catalogSoftwareResource?.representation?.proxy,
-                    })
-                );
-
-                consumerResponse = postConsumerData;
-
-                await dataExchange.updateStatus(
-                    DataExchangeStatusEnum.IMPORT_SUCCESS
-                );
-
-                break;
             }
             case 'POSTGRESQL': {
                 let cred;
@@ -521,7 +643,7 @@ export const consumerImportService = async (props: {
                 if (!sqlConfig?.url) {
                     Logger.error({
                         message: `No URL defined for ${purpose?.resource} in catalog`,
-                        location: 'ProviderExportService',
+                        location: 'consumerImportService',
                     });
                     break;
                 }
@@ -542,14 +664,14 @@ export const consumerImportService = async (props: {
                     });
 
                     consumerResponse = await sql.unsafe(
-                        !sqlConfig?.query ? data : sqlConfig?.query
+                        !sqlConfig?.query ? processedData : sqlConfig?.query
                     );
 
                     await sql.end();
                 } catch (e) {
                     Logger.error({
                         message: `Error executing SQL for ${purpose.resource}: ${e.message}`,
-                        location: 'ProviderExportService',
+                        location: 'consumerImportService',
                     });
                     await dataExchange?.updateStatus(
                         DataExchangeStatusEnum.PROVIDER_EXPORT_ERROR,
@@ -566,29 +688,78 @@ export const consumerImportService = async (props: {
 
                 break;
             }
-            default:
-                {
-                    await dataExchange.updateStatus(
-                        DataExchangeStatusEnum.CONSUMER_IMPORT_ERROR,
-                        'Representation type not supported'
-                    );
-                }
+            case 'FTP': {
+                Logger.info({
+                    message: `Executing FTP for ${
+                        purpose.resource
+                    }, received data: ${JSON.stringify(
+                        processedData,
+                        null,
+                        2
+                    )}`,
+                    location: 'consumerImportService',
+                });
+
+                await dataExchange.updateStatus(
+                    DataExchangeStatusEnum.IMPORT_SUCCESS
+                );
 
                 break;
-        }
+            }
+            case 'KAFKA': {
+                Logger.info({
+                    message: `Executing KAFKA for ${
+                        purpose.resource
+                    }, received data: ${JSON.stringify(
+                        processedData,
+                        null,
+                        2
+                    )}`,
+                    location: 'consumerImportService',
+                });
 
-        if (catalogSoftwareResource.isAPI) {
-            if (apiResponseRepresentation) {
-                await handle(
-                    providerImport(
-                        dataExchange.providerEndpoint,
-                        consumerResponse,
-                        dataExchange._id.toString()
-                    )
+                const kafkaConfig =
+                    catalogSoftwareResource?.representation?.kafka;
+                const command = kafkaConfig.script;
+
+                await new Promise<void>((resolve, reject) => {
+                    exec(command, async (error, stdout, stderr) => {
+                        if (error) {
+                            Logger.error({
+                                message: `Error executing Kafka script for ${purpose.resource}: ${error.message}`,
+                                location: 'ProviderExportService',
+                            });
+                            reject(error);
+                            return;
+                        }
+
+                        if (stderr) {
+                            Logger.error({
+                                message: `Kafka script stderr for ${purpose.resource}: ${stderr}`,
+                                location: 'ProviderExportService',
+                            });
+                        }
+
+                        if (stdout) {
+                            Logger.info({
+                                message: `Kafka script stdout for ${purpose.resource}: ${stdout}`,
+                                location: 'ProviderExportService',
+                            });
+                        }
+                        resolve();
+                    });
+                });
+
+                await dataExchange?.updateStatus(
+                    DataExchangeStatusEnum.TRANSFER_COMPLETED,
+                    data
                 );
+
+                break;
+            }
+            default: {
+                throw new Error('Representation type not supported');
             }
         }
-
-        await dataExchange?.updateStatus(DataExchangeStatusEnum.IMPORT_SUCCESS);
     }
 };

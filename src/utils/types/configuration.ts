@@ -20,7 +20,26 @@ interface IConfiguration {
     consentJWT?: string;
     expressLimitSize?: string;
     serviceChainAdapter?: string;
+    proxy?: {
+        host: string;
+        port: number;
+        protocol: string;
+        username?: string;
+        password?: string;
+    };
     serviceChainAdapterTimeout?: number;
+    ampq?: {
+        host: string;
+        queue?: string;
+    };
+    kafka?: {
+        brokers: [string];
+        topic?: string;
+        groupId?: string;
+    };
+    websocket?: {
+        uri: string;
+    };
 }
 
 const ModalOriginSchema = new Schema({

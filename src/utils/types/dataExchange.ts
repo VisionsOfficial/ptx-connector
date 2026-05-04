@@ -1,10 +1,16 @@
 import { connection, Schema } from 'mongoose';
 import axios from 'axios';
 import { urlChecker } from '../urlChecker';
-import { getEndpoint } from '../../libs/loaders/configuration';
+import {
+    getAmpq,
+    getEndpoint,
+    getProxy,
+} from '../../libs/loaders/configuration';
 import { ObjectId } from 'mongodb';
 import { handle } from '../../libs/loaders/handler';
 import { ContractServiceChain } from './contractServiceChain';
+import { checkConnectorProxy } from '../../libs/third-party/proxy';
+import amqp from 'amqplib';
 
 interface IData {
     serviceOffering?: string;
@@ -12,6 +18,14 @@ interface IData {
     resource: string;
     params?: IParams;
     completed: boolean;
+}
+
+interface IProxy {
+    protocol: string;
+    host: string;
+    port: number;
+    username?: string;
+    password?: string;
 }
 
 export interface IQueryParams {
@@ -59,11 +73,14 @@ interface IDataExchange {
         checksum: string;
         size: number;
         mimetype: string;
+        fileName: string;
     };
     providerParams?: IParams;
     consumerParams?: IParams;
     serviceChain?: ContractServiceChain;
     serviceChainParams?: [IData];
+    providerProxy?: IProxy;
+    consumerProxy?: IProxy;
 
     // Define method signatures
     createDataExchangeToOtherParticipant(
@@ -78,6 +95,7 @@ interface IDataExchange {
     updateProviderData(payload: {
         checksum: string;
         mimeType: string;
+        fileName?: string;
         size: number;
     }): Promise<IDataExchange>;
     syncWithInfrastructure(
@@ -119,6 +137,17 @@ const dataSchema = new Schema(
     }
 );
 
+const ProxySchema = new Schema(
+    {
+        protocol: String,
+        host: String,
+        port: Number,
+        username: String,
+        password: String,
+    },
+    { _id: false }
+);
+
 const schema = new Schema({
     resources: [dataSchema],
     purposes: [dataSchema],
@@ -126,12 +155,15 @@ const schema = new Schema({
     contract: String,
     consumerEndpoint: String,
     providerEndpoint: String,
+    providerProxy: ProxySchema,
+    consumerProxy: ProxySchema,
     consumerDataExchange: String,
     providerDataExchange: String,
     providerData: {
         checksum: String,
         size: Number,
         mimetype: String,
+        fileName: String,
     },
     status: String,
     createdAt: Date,
@@ -176,6 +208,8 @@ schema.methods.createDataExchangeToOtherParticipant = async function (
     if (participant === 'provider') {
         data = {
             consumerEndpoint: await getEndpoint(),
+            providerProxy: this.providerProxy,
+            consumerProxy: this.consumerProxy,
             resources: this.resources,
             purposes: this.purposes,
             purposeId: this.purposeId,
@@ -192,6 +226,8 @@ schema.methods.createDataExchangeToOtherParticipant = async function (
     } else {
         data = {
             providerEndpoint: await getEndpoint(),
+            providerProxy: this.providerProxy,
+            consumerProxy: this.consumerProxy,
             resources: this.resources,
             purposes: this.purposes,
             purposeId: this.purposeId,
@@ -206,6 +242,7 @@ schema.methods.createDataExchangeToOtherParticipant = async function (
             providerData: this.providerData,
         };
     }
+
     const response = await axios.post(
         urlChecker(
             participant === 'provider'
@@ -213,7 +250,15 @@ schema.methods.createDataExchangeToOtherParticipant = async function (
                 : this.consumerEndpoint,
             'dataexchanges'
         ),
-        data
+        data,
+        await checkConnectorProxy({
+            dataExchangeId: this?._id,
+            endpoint:
+                participant === 'provider'
+                    ? this?.providerEndpoint
+                    : this?.consumerEndpoint,
+            configProxy: getProxy(),
+        })
     );
 
     if (participant === 'provider') {
@@ -247,7 +292,12 @@ schema.methods.syncWithParticipant = async function () {
                 this.consumerDataExchange ?? this.providerDataExchange
             }`
         ),
-        data
+        data,
+        await checkConnectorProxy({
+            dataExchangeId: this?._id,
+            endpoint: this?.consumerEndpoint ?? this?.providerEndpoint,
+            configProxy: getProxy(),
+        })
     );
 };
 
@@ -280,6 +330,8 @@ schema.methods.syncWithInfrastructure = async function (
             providerDataExchange: this.providerDataExchange,
             providerEndpoint: this.providerEndpoint,
             providerData: this.providerData,
+            providerProxy: this.providerProxy,
+            consumerProxy: this.consumerProxy,
         })
     );
 
@@ -311,6 +363,7 @@ schema.methods.updateStatus = async function (
         };
     }
 
+    //TODO proxy
     await axios.put(
         urlChecker(
             this?.consumerEndpoint ?? this?.providerEndpoint,
@@ -322,8 +375,14 @@ schema.methods.updateStatus = async function (
             status,
             payload,
             error: this.error,
-        }
+        },
+        await checkConnectorProxy({
+            dataExchangeId: this?._id,
+            endpoint: this?.consumerEndpoint ?? this?.providerEndpoint,
+            configProxy: getProxy(),
+        })
     );
+
     return this.save();
 };
 
@@ -334,10 +393,12 @@ schema.methods.updateProviderData = async function (payload: {
     mimeType: string;
     size: number;
     checksum: string;
+    fileName: string;
 }) {
     this.providerData = {
         mimetype: payload.mimeType,
         size: payload.size,
+        fileName: payload.fileName,
         checksum: payload.checksum,
     };
     await axios.put(
@@ -349,7 +410,12 @@ schema.methods.updateProviderData = async function (payload: {
         ),
         {
             providerData: this.providerData,
-        }
+        },
+        await checkConnectorProxy({
+            dataExchangeId: this?._id,
+            endpoint: this?.consumerEndpoint ?? this?.providerEndpoint,
+            configProxy: getProxy(),
+        })
     );
     return this.save();
 };
@@ -376,7 +442,12 @@ schema.methods.completeServiceChain = async function (service: string) {
                 ),
                 {
                     serviceChain: this.serviceChain,
-                }
+                },
+                await checkConnectorProxy({
+                    dataExchangeId: this?._id,
+                    endpoint: this?.consumerEndpoint,
+                    configProxy: getProxy(),
+                })
             );
         }
 
@@ -388,7 +459,12 @@ schema.methods.completeServiceChain = async function (service: string) {
                 ),
                 {
                     serviceChain: this.serviceChain,
-                }
+                },
+                await checkConnectorProxy({
+                    dataExchangeId: this?._id,
+                    endpoint: this?.providerEndpoint,
+                    configProxy: getProxy(),
+                })
             );
         }
 
