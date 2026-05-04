@@ -14,6 +14,7 @@ import amqp from 'amqplib';
 
 interface IData {
     serviceOffering?: string;
+    skipBodyProcessing?: boolean;
     resource: string;
     params?: IParams;
     completed: boolean;
@@ -127,6 +128,7 @@ interface IDataExchangeMethods {
 const dataSchema = new Schema(
     {
         serviceOffering: String,
+        skipBodyProcessing: Boolean,
         resource: String,
         params: paramsSchema,
     },
