@@ -1,6 +1,13 @@
 import { useEffect, useState } from 'react';
 import { apiService } from '@/services/api';
-import { KpiOverview, KpiSimple, KpiServiceChain, KpiByOffer, KpiVolume } from '@/types';
+import {
+    KpiOverview,
+    KpiSimple,
+    KpiServiceChain,
+    KpiByOffer,
+    KpiVolume,
+    KpiError,
+} from '@/types';
 import {
     Card,
     CardContent,
@@ -10,6 +17,8 @@ import {
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 function fmtRate(rate: number) {
@@ -30,6 +39,25 @@ function rateBadgeVariant(
     if (rate >= 0.5) return 'secondary';
     return 'destructive';
 }
+
+function truncate(str: string | undefined, max: number): string {
+    if (!str) return '—';
+    return str.length > max ? `${str.slice(0, max)}…` : str;
+}
+
+function labelFromUri(uri: string | undefined): string {
+    if (!uri) return '—';
+    try {
+        const url = new URL(uri);
+        const parts = url.pathname.split('/').filter(Boolean);
+        return parts[parts.length - 1] || url.hostname;
+    } catch {
+        return uri;
+    }
+}
+
+const OFFER_PAGE_SIZE = 5;
+const ERROR_PAGE_SIZE = 5;
 
 // ─── Sub-components ─────────────────────────────────────────────────────────
 
@@ -107,66 +135,78 @@ function RateCard({
     );
 }
 
-// ─── Main component ──────────────────────────────────────────────────────────
+// ─── Role-scoped KPI view ────────────────────────────────────────────────────
 
-export default function KpiTab() {
+function KpiRoleView({ role }: { role: 'provider' | 'consumer' }) {
     const [overview, setOverview] = useState<KpiOverview | null>(null);
     const [simple, setSimple] = useState<KpiSimple | null>(null);
     const [chain, setChain] = useState<KpiServiceChain | null>(null);
     const [byOffer, setByOffer] = useState<KpiByOffer[]>([]);
     const [volume, setVolume] = useState<KpiVolume | null>(null);
-    const [offerType, setOfferType] = useState<'resource' | 'purpose'>(
-        'resource'
-    );
+    const [errors, setErrors] = useState<KpiError[]>([]);
     const [loading, setLoading] = useState(true);
+    const [offerPage, setOfferPage] = useState(0);
+    const [errorPage, setErrorPage] = useState(0);
 
-    const load = async (type: 'resource' | 'purpose' = 'resource') => {
+    // Resource for provider, purpose for consumer — the toggle is gone.
+    const offerType = role === 'provider' ? 'resource' : 'purpose';
+
+    const load = async () => {
         setLoading(true);
         try {
-            const [ov, si, sc, bo, vol] = await Promise.allSettled([
-                apiService.getKpiOverview(),
-                apiService.getKpiSimple(),
-                apiService.getKpiServiceChain(),
-                apiService.getKpiByOffer(type),
-                apiService.getKpiVolume(),
+            const [ov, si, sc, bo, vol, err] = await Promise.allSettled([
+                apiService.getKpiOverview(role),
+                apiService.getKpiSimple(role),
+                apiService.getKpiServiceChain(role),
+                apiService.getKpiByOffer(offerType, role),
+                apiService.getKpiVolume(role),
+                apiService.getKpiErrors(role),
             ]);
             if (ov.status === 'fulfilled') setOverview(ov.value);
             if (si.status === 'fulfilled') setSimple(si.value);
             if (sc.status === 'fulfilled') setChain(sc.value);
-            if (bo.status === 'fulfilled') setByOffer(Array.isArray(bo.value) ? bo.value : []);
+            if (bo.status === 'fulfilled') {
+                setByOffer(Array.isArray(bo.value) ? bo.value : []);
+                setOfferPage(0);
+            }
             if (vol.status === 'fulfilled') setVolume(vol.value);
             else console.error('volume failed:', vol.reason);
-        } catch (err) {
-            console.error('KPI load error:', err);
+            if (err.status === 'fulfilled') {
+                setErrors(Array.isArray(err.value) ? err.value : []);
+                setErrorPage(0);
+            }
+        } catch (e) {
+            console.error('KPI load error:', e);
         } finally {
             setLoading(false);
         }
     };
 
     useEffect(() => {
-        load('resource');
+        load();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [role]);
 
-    const handleOfferTypeChange = (type: 'resource' | 'purpose') => {
-        setOfferType(type);
-        load(type);
-    };
+    const offerTotalPages = Math.ceil(byOffer.length / OFFER_PAGE_SIZE);
+    const pagedOffers = byOffer.slice(
+        offerPage * OFFER_PAGE_SIZE,
+        (offerPage + 1) * OFFER_PAGE_SIZE
+    );
+
+    const errorTotalPages = Math.ceil(errors.length / ERROR_PAGE_SIZE);
+    const pagedErrors = errors.slice(
+        errorPage * ERROR_PAGE_SIZE,
+        (errorPage + 1) * ERROR_PAGE_SIZE
+    );
 
     return (
         <div className="space-y-8">
-            {/* Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h2 className="text-xl font-semibold">Exchange KPIs</h2>
-                    <p className="text-sm text-muted-foreground mt-1">
-                        Management overview of dataspace connector exchanges
-                    </p>
-                </div>
+            {/* Refresh button */}
+            <div className="flex justify-end">
                 <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => load()}
+                    onClick={load}
                     disabled={loading}
                 >
                     {loading ? 'Refreshing…' : 'Refresh'}
@@ -249,21 +289,17 @@ export default function KpiTab() {
                             return (
                                 <>
                                     <div className="flex gap-2">
-                                        {/* Y-axis labels */}
                                         <div className="flex flex-col justify-between text-xs text-muted-foreground text-right w-8 h-40 select-none">
                                             <span>{max}</span>
                                             <span>{Math.round(max / 2)}</span>
                                             <span>0</span>
                                         </div>
-                                        {/* Chart area */}
                                         <div className="relative flex-1 h-40">
-                                            {/* Horizontal grid lines */}
                                             <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
                                                 <div className="border-t border-border/40" />
                                                 <div className="border-t border-border/40" />
                                                 <div className="border-t border-border/40" />
                                             </div>
-                                            {/* Bars */}
                                             <div className="absolute inset-0 flex items-end gap-[2px]">
                                                 {volume.exchangesByDay.map((d) => {
                                                     const heightPct = max > 0 ? (d.count / max) * 100 : 0;
@@ -279,13 +315,11 @@ export default function KpiTab() {
                                             </div>
                                         </div>
                                     </div>
-                                    {/* Date axis */}
                                     <div className="flex justify-between mt-1 pl-10 text-xs text-muted-foreground">
                                         <span>{volume.exchangesByDay[0].date}</span>
                                         <span>{volume.exchangesByDay[Math.floor(volume.exchangesByDay.length / 2)].date}</span>
                                         <span>{volume.exchangesByDay[volume.exchangesByDay.length - 1].date}</span>
                                     </div>
-                                    {/* Summary */}
                                     <div className="flex gap-4 mt-3 pt-3 border-t text-xs text-muted-foreground">
                                         <span>Total: <span className="font-medium text-foreground">{total.toLocaleString()}</span></span>
                                         <span>Peak: <span className="font-medium text-foreground">{peak.count}</span> on <span className="font-medium text-foreground">{peak.date}</span></span>
@@ -373,35 +407,11 @@ export default function KpiTab() {
                 </div>
             </section>
 
-            {/* ── Section 3: By offer ─────────────────────────────────────── */}
+            {/* ── Section 5: By offer ─────────────────────────────────────── */}
             <section>
-                <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-                        Exchanges by Offer
-                    </h3>
-                    <div className="flex gap-2">
-                        <Button
-                            size="sm"
-                            variant={
-                                offerType === 'resource' ? 'default' : 'outline'
-                            }
-                            onClick={() => handleOfferTypeChange('resource')}
-                            disabled={loading}
-                        >
-                            Resource
-                        </Button>
-                        <Button
-                            size="sm"
-                            variant={
-                                offerType === 'purpose' ? 'default' : 'outline'
-                            }
-                            onClick={() => handleOfferTypeChange('purpose')}
-                            disabled={loading}
-                        >
-                            Purpose
-                        </Button>
-                    </div>
-                </div>
+                <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3">
+                    Exchanges by Offer
+                </h3>
 
                 {byOffer.length === 0 ? (
                     <Card>
@@ -417,7 +427,7 @@ export default function KpiTab() {
                                     <thead>
                                         <tr className="border-b bg-muted/50">
                                             <th className="text-left px-4 py-3 font-medium">
-                                                Service Offering
+                                                Offer
                                             </th>
                                             <th className="text-right px-4 py-3 font-medium">
                                                 Total
@@ -431,13 +441,21 @@ export default function KpiTab() {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {byOffer.map((row, i) => (
+                                        {pagedOffers.map((row, i) => (
                                             <tr
                                                 key={i}
                                                 className="border-b last:border-0 hover:bg-muted/30"
                                             >
-                                                <td className="px-4 py-3 font-mono text-xs truncate max-w-xs">
-                                                    {row.serviceOffering}
+                                                <td className="px-4 py-3 text-xs max-w-xs">
+                                                    {row.name ? (
+                                                        <span title={row.serviceOffering}>
+                                                            {row.name}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="font-mono" title={row.serviceOffering}>
+                                                            {labelFromUri(row.serviceOffering)}
+                                                        </span>
+                                                    )}
                                                 </td>
                                                 <td className="px-4 py-3 text-right">
                                                     {row.totalExchanges}
@@ -447,13 +465,9 @@ export default function KpiTab() {
                                                 </td>
                                                 <td className="px-4 py-3 text-right">
                                                     <Badge
-                                                        variant={rateBadgeVariant(
-                                                            row.successRate
-                                                        )}
+                                                        variant={rateBadgeVariant(row.successRate)}
                                                     >
-                                                        {fmtRate(
-                                                            row.successRate
-                                                        )}
+                                                        {fmtRate(row.successRate)}
                                                     </Badge>
                                                 </td>
                                             </tr>
@@ -461,12 +475,170 @@ export default function KpiTab() {
                                     </tbody>
                                 </table>
                             </div>
+                            <div className="flex items-center justify-between px-4 py-3 border-t">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setOfferPage(p => Math.max(0, p - 1))}
+                                    disabled={offerPage === 0}
+                                >
+                                    Previous
+                                </Button>
+                                <span className="text-xs text-muted-foreground">
+                                    Page {offerPage + 1} of {Math.max(1, offerTotalPages)}
+                                </span>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setOfferPage(p => Math.min(offerTotalPages - 1, p + 1))}
+                                    disabled={offerPage >= offerTotalPages - 1}
+                                >
+                                    Next
+                                </Button>
+                            </div>
                         </CardContent>
                     </Card>
                 )}
             </section>
 
+            {/* ── Section 6: Failures / Errors ────────────────────────────── */}
+            <section>
+                <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3">
+                    Failures / Errors
+                </h3>
 
+                {errors.length === 0 ? (
+                    <Card>
+                        <CardContent className="py-8 text-center text-muted-foreground">
+                            {loading ? 'Loading…' : 'No failures recorded.'}
+                        </CardContent>
+                    </Card>
+                ) : (
+                    <Card>
+                        <CardContent className="p-0">
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm">
+                                    <thead>
+                                        <tr className="border-b bg-muted/50">
+                                            <th className="text-left px-4 py-3 font-medium">Contract</th>
+                                            <th className="text-left px-4 py-3 font-medium">Participant</th>
+                                            <th className="text-left px-4 py-3 font-medium">Status</th>
+                                            <th className="text-left px-4 py-3 font-medium">Error</th>
+                                            <th className="text-left px-4 py-3 font-medium">Payload</th>
+                                            <th className="text-left px-4 py-3 font-medium">Connector</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {pagedErrors.map((row) => (
+                                            <tr
+                                                key={row._id}
+                                                className="border-b last:border-0 hover:bg-muted/30 align-top"
+                                            >
+                                                <td className="px-4 py-3 text-xs max-w-[160px]">
+                                                    {row.contractName ? (
+                                                        <span title={row.contract}>
+                                                            {row.contractName}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="font-mono" title={row.contract}>
+                                                            {labelFromUri(row.contract)}
+                                                        </span>
+                                                    )}
+                                                </td>
+                                                <td className="px-4 py-3 text-xs max-w-[160px]">
+                                                    {row.participantName ? (
+                                                        <span title={row.participantEndpoint}>
+                                                            {row.participantName}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="font-mono" title={row.participantEndpoint}>
+                                                            {labelFromUri(row.participantEndpoint)}
+                                                        </span>
+                                                    )}
+                                                </td>
+                                                <td className="px-4 py-3 whitespace-nowrap">
+                                                    <Badge variant="destructive" className="text-xs">
+                                                        {row.status}
+                                                    </Badge>
+                                                </td>
+                                                <td className="px-4 py-3 text-xs max-w-[200px]">
+                                                    <span title={row.errorMessage}>
+                                                        {truncate(row.errorMessage, 80)}
+                                                    </span>
+                                                    {row.errorLocation && (
+                                                        <p className="text-muted-foreground mt-0.5 font-mono" title={row.errorLocation}>
+                                                            {truncate(row.errorLocation, 40)}
+                                                        </p>
+                                                    )}
+                                                </td>
+                                                <td className="px-4 py-3 text-xs max-w-[200px]">
+                                                    <span title={row.payload}>
+                                                        {truncate(row.payload, 80)}
+                                                    </span>
+                                                </td>
+                                                <td className="px-4 py-3 text-xs font-mono whitespace-nowrap">
+                                                    {row.connectorName}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div className="flex items-center justify-between px-4 py-3 border-t">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setErrorPage(p => Math.max(0, p - 1))}
+                                    disabled={errorPage === 0}
+                                >
+                                    Previous
+                                </Button>
+                                <span className="text-xs text-muted-foreground">
+                                    Page {errorPage + 1} of {Math.max(1, errorTotalPages)}
+                                </span>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setErrorPage(p => Math.min(errorTotalPages - 1, p + 1))}
+                                    disabled={errorPage >= errorTotalPages - 1}
+                                >
+                                    Next
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
+            </section>
+        </div>
+    );
+}
+
+// ─── Main component ──────────────────────────────────────────────────────────
+
+export default function KpiTab() {
+    return (
+        <div className="space-y-6">
+            <div>
+                <h2 className="text-xl font-semibold">Exchange KPIs</h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                    Management overview of dataspace connector exchanges
+                </p>
+            </div>
+
+            <Tabs defaultValue="provider">
+                <TabsList>
+                    <TabsTrigger value="provider">As Provider</TabsTrigger>
+                    <TabsTrigger value="consumer">As Consumer</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="provider" className="mt-6">
+                    <KpiRoleView role="provider" />
+                </TabsContent>
+
+                <TabsContent value="consumer" className="mt-6">
+                    <KpiRoleView role="consumer" />
+                </TabsContent>
+            </Tabs>
         </div>
     );
 }

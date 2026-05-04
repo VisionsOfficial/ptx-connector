@@ -37,9 +37,24 @@ export interface KpiOverview {
 
 export interface KpiByOffer {
     serviceOffering: string;
+    name?: string;
     totalExchanges: number;
     successfulExchanges: number;
     successRate: number;
+}
+
+export interface KpiError {
+    _id: string;
+    contract?: string;
+    contractName?: string;
+    status: string;
+    errorMessage?: string;
+    errorLocation?: string;
+    payload?: string;
+    participantEndpoint?: string;
+    participantName?: string;
+    connectorName: string;
+    createdAt: string;
 }
 
 export interface KpiServiceChain {

@@ -293,10 +293,11 @@ class ApiService {
     }
 
     // KPI endpoints
-    async getKpiOverview() {
+    async getKpiOverview(role?: 'provider' | 'consumer') {
         try {
+            const qs = role ? `?role=${role}` : '';
             const response = await this.api.get(
-                '/private/kpis/exchanges/overview'
+                `/private/kpis/exchanges/overview${qs}`
             );
             return response.data.content || response.data;
         } catch (error) {
@@ -304,10 +305,11 @@ class ApiService {
         }
     }
 
-    async getKpiSimple() {
+    async getKpiSimple(role?: 'provider' | 'consumer') {
         try {
+            const qs = role ? `?role=${role}` : '';
             const response = await this.api.get(
-                '/private/kpis/exchanges/simple'
+                `/private/kpis/exchanges/simple${qs}`
             );
             return response.data.content || response.data;
         } catch (error) {
@@ -315,10 +317,11 @@ class ApiService {
         }
     }
 
-    async getKpiServiceChain() {
+    async getKpiServiceChain(role?: 'provider' | 'consumer') {
         try {
+            const qs = role ? `?role=${role}` : '';
             const response = await this.api.get(
-                '/private/kpis/exchanges/service-chain'
+                `/private/kpis/exchanges/service-chain${qs}`
             );
             return response.data.content || response.data;
         } catch (error) {
@@ -326,10 +329,15 @@ class ApiService {
         }
     }
 
-    async getKpiByOffer(type: 'resource' | 'purpose' = 'resource') {
+    async getKpiByOffer(
+        type: 'resource' | 'purpose' = 'resource',
+        role?: 'provider' | 'consumer'
+    ) {
         try {
+            const params = new URLSearchParams({ type });
+            if (role) params.set('role', role);
             const response = await this.api.get(
-                `/private/kpis/exchanges/by-offer?type=${type}`
+                `/private/kpis/exchanges/by-offer?${params.toString()}`
             );
             return response.data.content || response.data;
         } catch (error) {
@@ -337,10 +345,23 @@ class ApiService {
         }
     }
 
-    async getKpiVolume() {
+    async getKpiVolume(role?: 'provider' | 'consumer') {
         try {
+            const qs = role ? `?role=${role}` : '';
             const response = await this.api.get(
-                '/private/kpis/exchanges/volume'
+                `/private/kpis/exchanges/volume${qs}`
+            );
+            return response.data.content || response.data;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async getKpiErrors(role?: 'provider' | 'consumer') {
+        try {
+            const qs = role ? `?role=${role}` : '';
+            const response = await this.api.get(
+                `/private/kpis/exchanges/errors${qs}`
             );
             return response.data.content || response.data;
         } catch (error) {

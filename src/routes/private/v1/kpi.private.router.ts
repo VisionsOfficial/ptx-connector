@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
     getKpiByOffer,
+    getKpiErrors,
     getKpiOverview,
     getKpiServiceChain,
     getKpiSimple,
@@ -64,6 +65,10 @@ r.use(kpiAuth);
  *           type: string
  *           description: URI of the service offering
  *           example: "https://catalog.example.com/v1/catalog/serviceofferings/abc123"
+ *         name:
+ *           type: string
+ *           description: Human-readable name resolved from the catalog; absent if catalog is unreachable
+ *           example: "Mobility Data Feed v1"
  *         totalExchanges:
  *           type: integer
  *           example: 300
@@ -131,6 +136,19 @@ r.use(kpiAuth);
  *           type: array
  *           items:
  *             $ref: '#/components/schemas/KpiVolumeDay'
+ *   parameters:
+ *     kpiRole:
+ *       name: role
+ *       in: query
+ *       required: false
+ *       schema:
+ *         type: string
+ *         enum: [provider, consumer]
+ *       description: >
+ *         Filter exchanges by connector role.
+ *         - `provider`: only exchanges where this connector sent data (consumerEndpoint is set)
+ *         - `consumer`: only exchanges where this connector received data (providerEndpoint is set)
+ *         Omit to include all exchanges regardless of role.
  */
 
 /**
@@ -143,6 +161,8 @@ r.use(kpiAuth);
  *     security:
  *       - jwt: []
  *       - kpiApiKey: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/kpiRole'
  *     produces:
  *       - application/json
  *     responses:
@@ -179,6 +199,7 @@ r.get('/exchanges/overview', getKpiOverview);
  *           enum: [resource, purpose]
  *           default: resource
  *         description: Whether to group by provider resource offering or consumer purpose offering
+ *       - $ref: '#/components/parameters/kpiRole'
  *     produces:
  *       - application/json
  *     responses:
@@ -208,6 +229,8 @@ r.get('/exchanges/by-offer', getKpiByOffer);
  *     security:
  *       - jwt: []
  *       - kpiApiKey: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/kpiRole'
  *     produces:
  *       - application/json
  *     responses:
@@ -235,6 +258,8 @@ r.get('/exchanges/service-chain', getKpiServiceChain);
  *     security:
  *       - jwt: []
  *       - kpiApiKey: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/kpiRole'
  *     produces:
  *       - application/json
  *     responses:
@@ -280,6 +305,7 @@ r.get('/exchanges/simple', getKpiSimple);
  *           format: date-time
  *         description: End of the date range (ISO 8601, inclusive)
  *         example: "2026-04-09T23:59:59Z"
+ *       - $ref: '#/components/parameters/kpiRole'
  *     produces:
  *       - application/json
  *     responses:
@@ -293,5 +319,82 @@ r.get('/exchanges/simple', getKpiSimple);
  *         description: Unauthorized – missing or invalid JWT / API key
  */
 r.get('/exchanges/volume', getKpiVolume);
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     KpiError:
+ *       type: object
+ *       description: A single failed data exchange with debugging context
+ *       properties:
+ *         _id:
+ *           type: string
+ *           description: DataExchange document ID
+ *           example: "6613f2a0c3b4e500123abcde"
+ *         contract:
+ *           type: string
+ *           description: Contract URI associated with the exchange
+ *           example: "https://contracts.example.com/v1/contracts/abc123"
+ *         status:
+ *           type: string
+ *           description: Error status code
+ *           example: "PROVIDER_EXPORT_ERROR"
+ *         errorMessage:
+ *           type: string
+ *           description: Human-readable error message
+ *           example: "Export failed: upstream timeout"
+ *         errorLocation:
+ *           type: string
+ *           description: Code location where the error was raised
+ *           example: "provider.public.service.ts"
+ *         payload:
+ *           type: string
+ *           description: Raw payload associated with the error
+ *         participantEndpoint:
+ *           type: string
+ *           description: Endpoint URL of the remote participant (consumer or provider)
+ *           example: "https://pdc-consumer.example.com"
+ *         connectorName:
+ *           type: string
+ *           description: NAME env-var of the local connector
+ *           example: "local-pdc"
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *           example: "2026-04-20T08:30:00.000Z"
+ */
+
+/**
+ * @swagger
+ * /private/kpis/exchanges/errors:
+ *   get:
+ *     summary: Recent failed exchanges with debugging context
+ *     description: >
+ *       Returns up to 50 of the most recent exchanges whose status is an error value
+ *       (PROVIDER_EXPORT_ERROR, CONSUMER_IMPORT_ERROR, PEP_ERROR, etc.).
+ *       Each entry includes the contract, the remote participant endpoint, the error
+ *       message and payload, and the local connector name.
+ *     tags: [KPIs]
+ *     security:
+ *       - jwt: []
+ *       - kpiApiKey: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/kpiRole'
+ *     produces:
+ *       - application/json
+ *     responses:
+ *       '200':
+ *         description: Successful response
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/KpiError'
+ *       '401':
+ *         description: Unauthorized – missing or invalid JWT / API key
+ */
+r.get('/exchanges/errors', getKpiErrors);
 
 export default r;

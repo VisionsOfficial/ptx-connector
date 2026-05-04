@@ -1,10 +1,32 @@
+import { PipelineStage } from 'mongoose';
 import { DataExchange } from '../../../utils/types/dataExchange';
 import { DataExchangeStatusEnum } from '../../../utils/enums/dataExchangeStatusEnum';
+import { getCatalogData } from '../../../libs/third-party/catalog';
 
 const SUCCESS_STATUSES = [
     DataExchangeStatusEnum.EXPORT_SUCCESS,
     DataExchangeStatusEnum.IMPORT_SUCCESS,
 ];
+
+const ERROR_STATUSES = [
+    DataExchangeStatusEnum.PROVIDER_EXPORT_ERROR,
+    DataExchangeStatusEnum.CONSENT_IMPORT_ERROR,
+    DataExchangeStatusEnum.CONSENT_EXPORT_ERROR,
+    DataExchangeStatusEnum.CONSUMER_IMPORT_ERROR,
+    DataExchangeStatusEnum.UNDEFINED_ERROR,
+    DataExchangeStatusEnum.PEP_ERROR,
+    DataExchangeStatusEnum.NODE_CALLBACK_ERROR,
+];
+
+type Role = 'provider' | 'consumer';
+
+function buildRolePipeline(role?: Role): PipelineStage[] {
+    if (role === 'provider')
+        return [{ $match: { consumerEndpoint: { $exists: true, $ne: null } } }];
+    if (role === 'consumer')
+        return [{ $match: { providerEndpoint: { $exists: true, $ne: null } } }];
+    return [];
+}
 
 export interface KpiOverview {
     totalExchanges: number;
@@ -18,9 +40,24 @@ export interface KpiOverview {
 
 export interface KpiByOffer {
     serviceOffering: string;
+    name?: string;
     totalExchanges: number;
     successfulExchanges: number;
     successRate: number;
+}
+
+export interface KpiError {
+    _id: string;
+    contract?: string;
+    contractName?: string;
+    status: string;
+    errorMessage?: string;
+    errorLocation?: string;
+    payload?: string;
+    participantEndpoint?: string;
+    participantName?: string;
+    connectorName: string;
+    createdAt: string;
 }
 
 export interface KpiServiceChain {
@@ -53,8 +90,11 @@ const simpleFilter = { 'serviceChain.services.0': { $exists: false } };
  * total bytes transferred, and a breakdown between simple and service-chain types.
  * @returns Promise<KpiOverview>
  */
-export const getKpiOverviewService = async (): Promise<KpiOverview> => {
+export const getKpiOverviewService = async (
+    role?: Role
+): Promise<KpiOverview> => {
     const [result] = await DataExchange.aggregate([
+        ...buildRolePipeline(role),
         {
             $facet: {
                 total: [{ $count: 'count' }],
@@ -127,7 +167,8 @@ export const getKpiOverviewService = async (): Promise<KpiOverview> => {
  * @returns Promise<KpiByOffer[]>
  */
 export const getKpiByOfferService = async (
-    type: 'resource' | 'purpose' = 'resource'
+    type: 'resource' | 'purpose' = 'resource',
+    role?: Role
 ): Promise<KpiByOffer[]> => {
     const field =
         type === 'purpose'
@@ -137,6 +178,7 @@ export const getKpiByOfferService = async (
     const arrayField = type === 'purpose' ? 'purposes' : 'resources';
 
     const results = await DataExchange.aggregate([
+        ...buildRolePipeline(role),
         { $unwind: `$${arrayField}` },
         {
             $match: {
@@ -157,8 +199,20 @@ export const getKpiByOfferService = async (
         { $sort: { totalExchanges: -1 } },
     ]);
 
-    return results.map((r) => ({
+    const names = await Promise.all(
+        results.map(async (r) => {
+            try {
+                const res = await getCatalogData(r._id as string);
+                return (res.data?.name as string) ?? undefined;
+            } catch {
+                return undefined;
+            }
+        })
+    );
+
+    return results.map((r, i) => ({
         serviceOffering: r._id as string,
+        name: names[i],
         totalExchanges: r.totalExchanges as number,
         successfulExchanges: r.successfulExchanges as number,
         successRate:
@@ -177,8 +231,11 @@ export const getKpiByOfferService = async (
  * Note: each individual step in a chain is counted as a separate exchange.
  * @returns Promise<KpiServiceChain>
  */
-export const getKpiServiceChainService = async (): Promise<KpiServiceChain> => {
+export const getKpiServiceChainService = async (
+    role?: Role
+): Promise<KpiServiceChain> => {
     const [result] = await DataExchange.aggregate([
+        ...buildRolePipeline(role),
         { $match: serviceChainFilter },
         {
             $facet: {
@@ -215,8 +272,9 @@ export const getKpiServiceChainService = async (): Promise<KpiServiceChain> => {
  * serviceChain.services array is absent or empty.
  * @returns Promise<KpiSimple>
  */
-export const getKpiSimpleService = async (): Promise<KpiSimple> => {
+export const getKpiSimpleService = async (role?: Role): Promise<KpiSimple> => {
     const [result] = await DataExchange.aggregate([
+        ...buildRolePipeline(role),
         { $match: simpleFilter },
         {
             $facet: {
@@ -254,7 +312,8 @@ export const getKpiSimpleService = async (): Promise<KpiSimple> => {
  */
 export const getKpiVolumeService = async (
     from?: string,
-    to?: string
+    to?: string,
+    role?: Role
 ): Promise<KpiVolume> => {
     const dateFilter: Record<string, Date> = {};
     if (from) dateFilter.$gte = new Date(from);
@@ -265,7 +324,10 @@ export const getKpiVolumeService = async (
             ? { $match: { createdAt: dateFilter } }
             : null;
 
-    const basePipeline = timeMatch ? [timeMatch] : [];
+    const basePipeline = [
+        ...buildRolePipeline(role),
+        ...(timeMatch ? [timeMatch] : []),
+    ];
 
     const [result] = await DataExchange.aggregate([
         ...basePipeline,
@@ -299,7 +361,7 @@ export const getKpiVolumeService = async (
                             count: { $sum: 1 },
                         },
                     },
-                    { $sort: { _id: 1 } },
+                    { $sort: { _id: 1 as const } },
                 ],
             },
         },
@@ -312,4 +374,76 @@ export const getKpiVolumeService = async (
             (d) => ({ date: d._id, count: d.count })
         ),
     };
+};
+
+/**
+ * Returns the most recent failed exchanges (up to 50), filtered by role.
+ * Each entry includes contract, status, error details, payload, the remote
+ * participant's endpoint, and the local connector name.
+ * @param {Role} [role] - 'provider' | 'consumer' — omit for all roles
+ * @returns Promise<KpiError[]>
+ */
+export const getKpiErrorsService = async (role?: Role): Promise<KpiError[]> => {
+    const roleFilter =
+        role === 'provider'
+            ? { consumerEndpoint: { $exists: true, $ne: null } }
+            : role === 'consumer'
+            ? { providerEndpoint: { $exists: true, $ne: null } }
+            : {};
+
+    const docs = await DataExchange.find({
+        ...roleFilter,
+        status: { $in: ERROR_STATUSES },
+    })
+        .select(
+            'contract status error payload consumerEndpoint providerEndpoint createdAt'
+        )
+        .sort({ createdAt: -1 })
+        .limit(50)
+        .lean();
+
+    const connectorName = process.env.NAME ?? 'unknown';
+
+    const participantEndpoints = docs.map((r) =>
+        role === 'consumer' ? r.providerEndpoint : r.consumerEndpoint
+    );
+
+    const [contractNames, participantNames] = await Promise.all([
+        Promise.all(
+            docs.map(async (r) => {
+                if (!r.contract) return undefined;
+                try {
+                    const res = await getCatalogData(r.contract);
+                    return (res.data?.name as string) ?? undefined;
+                } catch {
+                    return undefined;
+                }
+            })
+        ),
+        Promise.all(
+            participantEndpoints.map(async (endpoint) => {
+                if (!endpoint) return undefined;
+                try {
+                    const res = await getCatalogData(endpoint);
+                    return (res.data?.name as string) ?? undefined;
+                } catch {
+                    return undefined;
+                }
+            })
+        ),
+    ]);
+
+    return docs.map((r, i) => ({
+        _id: (r._id as { toString(): string }).toString(),
+        contract: r.contract,
+        contractName: contractNames[i],
+        status: r.status,
+        errorMessage: r.error?.message,
+        errorLocation: r.error?.location,
+        payload: r.payload,
+        participantEndpoint: participantEndpoints[i],
+        participantName: participantNames[i],
+        connectorName,
+        createdAt: new Date(r.createdAt as unknown as string).toISOString(),
+    }));
 };
