@@ -28,11 +28,16 @@ services:
       - internal
 
   mongodb:
-    image: dataspace-connector-mongodb:latest
     container_name: ${NAME}-mongodb
+    image: mongo:latest
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+      MONGO_INITDB_DATABASE: dataspace-connector
     restart: unless-stopped
     volumes:
       - ./data:/data/db
+      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
     networks:
       - internal
 
