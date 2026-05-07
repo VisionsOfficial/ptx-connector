@@ -11,11 +11,17 @@ import {
     triggerEcosystemFlow,
 } from '../../../services/public/v1/consumer.public.service';
 import { ProviderExportService } from '../../../services/public/v1/provider.public.service';
-import { getEndpoint } from '../../../libs/loaders/configuration';
+import { getEndpoint, getProxy } from '../../../libs/loaders/configuration';
 import { ExchangeError } from '../../../libs/errors/exchangeError';
 import axios from 'axios';
 import { verifyPayloadDefault } from '../../../utils/validation/payloadValidation';
 import { ObjectId } from 'mongodb';
+import {
+    amqpPublisher,
+    kafkaPublisher,
+    websocketPublisher,
+} from '../../../utils/publisher';
+import { checkConnectorProxy } from '../../../libs/third-party/proxy';
 
 /**
  * trigger the data exchange between provider and consumer in a bilateral or ecosystem contract
@@ -95,7 +101,12 @@ export const consumerExchange = async (
             for (const service of dataExchange.serviceChain.services) {
                 // Get the infrastructure service information
                 const [participantResponse] = await handle(
-                    axios.get(service.participant)
+                    axios.get(
+                        service.participant,
+                        await checkConnectorProxy({
+                            configProxy: getProxy(),
+                        })
+                    )
                 );
 
                 // Find the participant endpoint
@@ -116,7 +127,12 @@ export const consumerExchange = async (
                     for (const prechain of service.pre) {
                         for (const element of prechain) {
                             const [participantResponse] = await handle(
-                                axios.get(element.participant)
+                                axios.get(
+                                    element.participant,
+                                    await checkConnectorProxy({
+                                        configProxy: getProxy(),
+                                    })
+                                )
                             );
 
                             // Find the participant endpoint
@@ -139,7 +155,7 @@ export const consumerExchange = async (
             }
         }
 
-        //Trigger provider.ts endpoint exchange
+        //default protocol and use provider export service
         if (dataExchange.consumerEndpoint) {
             const updatedDataExchange = await DataExchange.findById(
                 dataExchange._id
@@ -148,7 +164,9 @@ export const consumerExchange = async (
             await ProviderExportService(
                 updatedDataExchange.consumerDataExchange
             );
-        } else {
+        }
+        //default protocol and request provider
+        else {
             if (providerEndpoint === (await getEndpoint())) {
                 Logger.error({
                     message: "Can't make request to itself.",
@@ -160,25 +178,49 @@ export const consumerExchange = async (
                     500
                 );
             }
-            await handle(
-                providerExport(providerEndpoint, dataExchange._id.toString())
+            // Fire and forget - don't wait for provider response
+            // The status polling loop below will handle completion
+            providerExport(providerEndpoint, dataExchange._id.toString()).catch(
+                (err) => {
+                    Logger.error({
+                        message: `Provider export failed: ${err.message}`,
+                        location: 'consumerExchange - providerExport',
+                    });
+                }
             );
         }
+
         const startTime = Date.now();
-        const timeout =  (process.env.EXCHANGE_TIMEOUT ? parseInt(process.env.EXCHANGE_TIMEOUT) : 30) * 1000;
+        const timeout =
+            (process.env.EXCHANGE_TIMEOUT
+                ? parseInt(process.env.EXCHANGE_TIMEOUT)
+                : 30) * 1000;
         let message: string;
         let success = false;
         // return code 200 everything is ok
-        while (dataExchange.status === 'PENDING') {
+        while (
+            dataExchange.status === 'PENDING' ||
+            dataExchange.status === 'TRANSFER_STARTED'
+        ) {
             if (Date.now() - startTime > timeout) {
-                message = `${(process.env.EXCHANGE_TIMEOUT ? parseInt(process.env.EXCHANGE_TIMEOUT) : 30)} sec Timeout reached.`;
+                message = `${
+                    process.env.EXCHANGE_TIMEOUT
+                        ? parseInt(process.env.EXCHANGE_TIMEOUT)
+                        : 30
+                } sec Timeout reached.`;
                 break;
             }
             dataExchange = await DataExchange.findById(dataExchange._id);
             if (dataExchange.status === 'IMPORT_SUCCESS') {
                 success = true;
             }
+            await new Promise((resolve) => setTimeout(resolve, 500)); // Add 500ms delay between checks
         }
+
+        //Publisher
+        // amqpPublisher(dataExchange);
+        // kafkaPublisher(dataExchange);
+        // websocketPublisher(dataExchange);
 
         return restfulResponse(res, 200, { success, dataExchange, message });
     } catch (e) {
@@ -252,7 +294,8 @@ export const consumerImport = async (
 
         await dataExchange?.updateStatus(
             DataExchangeStatusEnum.CONSUMER_IMPORT_ERROR,
-            e.message
+            e.message,
+            await getEndpoint()
         );
 
         return restfulResponse(res, 500, { success: false });
