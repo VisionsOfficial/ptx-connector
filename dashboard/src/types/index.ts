@@ -46,7 +46,9 @@ export interface KpiByOffer {
 export interface KpiError {
     _id: string;
     contract?: string;
-    contractName?: string;
+    ecosystemName?: string;
+    serviceOffering?: string;
+    offerName?: string;
     status: string;
     errorMessage?: string;
     errorLocation?: string;

@@ -68,6 +68,8 @@ interface IDataExchange {
         code?: number;
         location?: string;
     };
+    ecosystemName?: string;
+    offerName?: string;
     payload?: string;
     providerData?: {
         checksum: string;
@@ -174,6 +176,8 @@ const schema = new Schema({
         code: Number,
         location: String,
     },
+    ecosystemName: String,
+    offerName: String,
     consentId: String,
     providerParams: {
         query: [{ type: Schema.Types.Mixed, required: true }],

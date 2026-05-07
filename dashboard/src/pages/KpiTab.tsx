@@ -40,11 +40,6 @@ function rateBadgeVariant(
     return 'destructive';
 }
 
-function truncate(str: string | undefined, max: number): string {
-    if (!str) return '—';
-    return str.length > max ? `${str.slice(0, max)}…` : str;
-}
-
 function labelFromUri(uri: string | undefined): string {
     if (!uri) return '—';
     try {
@@ -517,15 +512,25 @@ function KpiRoleView({ role }: { role: 'provider' | 'consumer' }) {
                     <Card>
                         <CardContent className="p-0">
                             <div className="overflow-x-auto">
-                                <table className="w-full text-sm">
+                                <table className="w-full text-sm table-fixed">
+                                    <colgroup>
+                                        <col className="w-[12%]" />
+                                        <col className="w-[12%]" />
+                                        <col className="w-[14%]" />
+                                        <col className="w-[14%]" />
+                                        <col className="w-[20%]" />
+                                        <col className="w-[18%]" />
+                                        <col className="w-[10%]" />
+                                    </colgroup>
                                     <thead>
                                         <tr className="border-b bg-muted/50">
-                                            <th className="text-left px-4 py-3 font-medium">Contract</th>
-                                            <th className="text-left px-4 py-3 font-medium">Participant</th>
-                                            <th className="text-left px-4 py-3 font-medium">Status</th>
-                                            <th className="text-left px-4 py-3 font-medium">Error</th>
-                                            <th className="text-left px-4 py-3 font-medium">Payload</th>
-                                            <th className="text-left px-4 py-3 font-medium">Connector</th>
+                                            <th className="text-left px-3 py-3 font-medium">Ecosystem</th>
+                                            <th className="text-left px-3 py-3 font-medium">Offer</th>
+                                            <th className="text-left px-3 py-3 font-medium">Participant</th>
+                                            <th className="text-left px-3 py-3 font-medium">Status</th>
+                                            <th className="text-left px-3 py-3 font-medium">Error</th>
+                                            <th className="text-left px-3 py-3 font-medium">Payload</th>
+                                            <th className="text-left px-3 py-3 font-medium">Connector</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -534,10 +539,10 @@ function KpiRoleView({ role }: { role: 'provider' | 'consumer' }) {
                                                 key={row._id}
                                                 className="border-b last:border-0 hover:bg-muted/30 align-top"
                                             >
-                                                <td className="px-4 py-3 text-xs max-w-[160px]">
-                                                    {row.contractName ? (
+                                                <td className="px-3 py-3 text-xs break-words whitespace-normal">
+                                                    {row.ecosystemName ? (
                                                         <span title={row.contract}>
-                                                            {row.contractName}
+                                                            {row.ecosystemName}
                                                         </span>
                                                     ) : (
                                                         <span className="font-mono" title={row.contract}>
@@ -545,7 +550,18 @@ function KpiRoleView({ role }: { role: 'provider' | 'consumer' }) {
                                                         </span>
                                                     )}
                                                 </td>
-                                                <td className="px-4 py-3 text-xs max-w-[160px]">
+                                                <td className="px-3 py-3 text-xs break-words whitespace-normal">
+                                                    {row.offerName ? (
+                                                        <span title={row.serviceOffering}>
+                                                            {row.offerName}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="font-mono" title={row.serviceOffering}>
+                                                            {labelFromUri(row.serviceOffering)}
+                                                        </span>
+                                                    )}
+                                                </td>
+                                                <td className="px-3 py-3 text-xs break-words whitespace-normal">
                                                     {row.participantName ? (
                                                         <span title={row.participantEndpoint}>
                                                             {row.participantName}
@@ -556,27 +572,30 @@ function KpiRoleView({ role }: { role: 'provider' | 'consumer' }) {
                                                         </span>
                                                     )}
                                                 </td>
-                                                <td className="px-4 py-3 whitespace-nowrap">
-                                                    <Badge variant="destructive" className="text-xs">
+                                                <td className="px-3 py-3 pr-5 break-words whitespace-normal">
+                                                    <Badge variant="destructive" className="text-xs whitespace-normal break-words leading-snug max-w-full">
                                                         {row.status}
                                                     </Badge>
                                                 </td>
-                                                <td className="px-4 py-3 text-xs max-w-[200px]">
+                                                <td className="px-3 py-3 pl-5 text-xs break-words whitespace-normal leading-snug">
                                                     <span title={row.errorMessage}>
-                                                        {truncate(row.errorMessage, 80)}
+                                                        {row.errorMessage ?? '—'}
                                                     </span>
                                                     {row.errorLocation && (
-                                                        <p className="text-muted-foreground mt-0.5 font-mono" title={row.errorLocation}>
-                                                            {truncate(row.errorLocation, 40)}
+                                                        <p
+                                                            className="text-muted-foreground mt-1 font-mono break-all whitespace-normal"
+                                                            title={row.errorLocation}
+                                                        >
+                                                            {row.errorLocation}
                                                         </p>
                                                     )}
                                                 </td>
-                                                <td className="px-4 py-3 text-xs max-w-[200px]">
+                                                <td className="px-3 py-3 text-xs break-all whitespace-normal leading-snug">
                                                     <span title={row.payload}>
-                                                        {truncate(row.payload, 80)}
+                                                        {row.payload ?? '—'}
                                                     </span>
                                                 </td>
-                                                <td className="px-4 py-3 text-xs font-mono whitespace-nowrap">
+                                                <td className="px-3 py-3 text-xs font-mono break-words whitespace-normal">
                                                     {row.connectorName}
                                                 </td>
                                             </tr>
