@@ -2,6 +2,9 @@ import { PipelineStage } from 'mongoose';
 import { DataExchange } from '../../../utils/types/dataExchange';
 import { DataExchangeStatusEnum } from '../../../utils/enums/dataExchangeStatusEnum';
 import { getCatalogData } from '../../../libs/third-party/catalog';
+import { getCatalogUri } from '../../../libs/loaders/configuration';
+import { urlChecker } from '../../../utils/urlChecker';
+import { Logger } from '../../../libs/loggers';
 
 const SUCCESS_STATUSES = [
     DataExchangeStatusEnum.EXPORT_SUCCESS,
@@ -16,6 +19,8 @@ const ERROR_STATUSES = [
     DataExchangeStatusEnum.UNDEFINED_ERROR,
     DataExchangeStatusEnum.PEP_ERROR,
     DataExchangeStatusEnum.NODE_CALLBACK_ERROR,
+    // Legacy / lowercase status used by older seed data.
+    'failed' as unknown as DataExchangeStatusEnum,
 ];
 
 type Role = 'provider' | 'consumer';
@@ -49,7 +54,9 @@ export interface KpiByOffer {
 export interface KpiError {
     _id: string;
     contract?: string;
-    contractName?: string;
+    ecosystemName?: string;
+    serviceOffering?: string;
+    offerName?: string;
     status: string;
     errorMessage?: string;
     errorLocation?: string;
@@ -83,6 +90,78 @@ const BYTE_COVERAGE_NOTE =
 
 const serviceChainFilter = { 'serviceChain.services.0': { $exists: true } };
 const simpleFilter = { 'serviceChain.services.0': { $exists: false } };
+
+/**
+ * Pull every published service offering from the catalog and index them by id.
+ * Lets us resolve offer names without doing N axios.gets — and works even
+ * when the offer URIs stored on the doc point at hosts the connector can't
+ * reach (e.g. seed data with `localhost` URIs viewed from inside Docker).
+ */
+async function loadOfferNameById(): Promise<Map<string, string>> {
+    const map = new Map<string, string>();
+    try {
+        const catalogUri = await getCatalogUri();
+        if (!catalogUri) return map;
+        // Pull a generous page; production catalogs cap their own response.
+        const url = urlChecker(catalogUri, 'serviceofferings?limit=1000');
+        const res = await getCatalogData(url);
+        const list = Array.isArray(res.data)
+            ? res.data
+            : res.data?.result ??
+              res.data?.data?.result ??
+              res.data?.items ??
+              [];
+        for (const offer of list as Array<{ _id?: string; name?: string }>) {
+            if (offer?._id && offer?.name) {
+                map.set(String(offer._id), offer.name);
+            }
+        }
+    } catch (e) {
+        Logger.warn({
+            message: `KPI errors: failed to load offers for name resolution: ${
+                (e as Error).message
+            }`,
+            location: 'getKpiErrorsService.loadOfferNameById',
+        });
+    }
+    return map;
+}
+
+/**
+ * Pull the full ecosystem list from the catalog (visionstrust-casa) and index
+ * each ecosystem's display name by the contract id it references. Errors are
+ * swallowed so a flaky catalog never breaks the failures table.
+ */
+async function loadEcosystemNameByContractId(): Promise<Map<string, string>> {
+    const map = new Map<string, string>();
+    try {
+        const catalogUri = await getCatalogUri();
+        if (!catalogUri) return map;
+        const url = urlChecker(catalogUri, 'ecosystems');
+        const res = await getCatalogData(url);
+        const list = Array.isArray(res.data) ? res.data : res.data?.items ?? [];
+        for (const eco of list as Array<{
+            name?: string;
+            contract?: string | { _id?: string };
+        }>) {
+            const contractId =
+                typeof eco.contract === 'string'
+                    ? eco.contract
+                    : eco.contract?._id;
+            if (eco?.name && contractId) {
+                map.set(String(contractId), eco.name);
+            }
+        }
+    } catch (e) {
+        Logger.warn({
+            message: `KPI errors: failed to load ecosystems for name resolution: ${
+                (e as Error).message
+            }`,
+            location: 'getKpiErrorsService.loadEcosystemNameByContractId',
+        });
+    }
+    return map;
+}
 
 /**
  * Returns a global overview of all data exchanges:
@@ -396,7 +475,7 @@ export const getKpiErrorsService = async (role?: Role): Promise<KpiError[]> => {
         status: { $in: ERROR_STATUSES },
     })
         .select(
-            'contract status error payload consumerEndpoint providerEndpoint createdAt'
+            'contract resources status error payload consumerEndpoint providerEndpoint createdAt ecosystemName offerName'
         )
         .sort({ createdAt: -1 })
         .limit(50)
@@ -408,42 +487,78 @@ export const getKpiErrorsService = async (role?: Role): Promise<KpiError[]> => {
         role === 'consumer' ? r.providerEndpoint : r.consumerEndpoint
     );
 
-    const [contractNames, participantNames] = await Promise.all([
-        Promise.all(
-            docs.map(async (r) => {
-                if (!r.contract) return undefined;
+    const offerUris = docs.map(
+        (r) => r.resources?.[0]?.serviceOffering as string | undefined
+    );
+
+    // Dedupe URIs so each remote resource is fetched at most once.
+    const fetchNameByUri = async (
+        uris: (string | undefined)[]
+    ): Promise<Map<string, string | undefined>> => {
+        const unique = Array.from(
+            new Set(uris.filter((u): u is string => Boolean(u)))
+        );
+        const entries = await Promise.all(
+            unique.map(async (uri) => {
                 try {
-                    const res = await getCatalogData(r.contract);
-                    return (res.data?.name as string) ?? undefined;
+                    const res = await getCatalogData(uri);
+                    return [uri, (res.data?.name as string) ?? undefined] as const;
                 } catch {
-                    return undefined;
+                    return [uri, undefined] as const;
                 }
             })
-        ),
-        Promise.all(
-            participantEndpoints.map(async (endpoint) => {
-                if (!endpoint) return undefined;
-                try {
-                    const res = await getCatalogData(endpoint);
-                    return (res.data?.name as string) ?? undefined;
-                } catch {
-                    return undefined;
-                }
-            })
-        ),
+        );
+        return new Map(entries);
+    };
+
+    // Pull the catalog's full ecosystems + offers lists in parallel and index
+    // them by the id we'll be matching against. This lets us resolve every
+    // row's display names with two HTTP calls total instead of N per-row.
+    const [ecosystemNameByContractId, offerNameById] = await Promise.all([
+        loadEcosystemNameByContractId(),
+        loadOfferNameById(),
     ]);
 
-    return docs.map((r, i) => ({
-        _id: (r._id as { toString(): string }).toString(),
-        contract: r.contract,
-        contractName: contractNames[i],
-        status: r.status,
-        errorMessage: r.error?.message,
-        errorLocation: r.error?.location,
-        payload: r.payload,
-        participantEndpoint: participantEndpoints[i],
-        participantName: participantNames[i],
-        connectorName,
-        createdAt: new Date(r.createdAt as unknown as string).toISOString(),
-    }));
+    const lastSegment = (uri: string | undefined): string | undefined => {
+        if (!uri) return undefined;
+        try {
+            const u = new URL(uri);
+            const parts = u.pathname.split('/').filter(Boolean);
+            return parts[parts.length - 1];
+        } catch {
+            return uri.split('/').filter(Boolean).pop();
+        }
+    };
+
+    const participantNames = await fetchNameByUri(participantEndpoints);
+
+    return docs.map((r, i) => {
+        const snapshotEcosystem = (r as { ecosystemName?: string }).ecosystemName;
+        const snapshotOffer = (r as { offerName?: string }).offerName;
+        const contractId = lastSegment(r.contract);
+        const liveEcosystemName = contractId
+            ? ecosystemNameByContractId.get(contractId)
+            : undefined;
+        const offerUri = offerUris[i];
+        const offerId = lastSegment(offerUri);
+        const liveOfferName = offerId ? offerNameById.get(offerId) : undefined;
+        const participantEndpoint = participantEndpoints[i];
+        return {
+            _id: (r._id as { toString(): string }).toString(),
+            contract: r.contract,
+            ecosystemName: liveEcosystemName ?? snapshotEcosystem,
+            serviceOffering: offerUri,
+            offerName: liveOfferName ?? snapshotOffer,
+            status: r.status,
+            errorMessage: r.error?.message,
+            errorLocation: r.error?.location,
+            payload: r.payload,
+            participantEndpoint,
+            participantName: participantEndpoint
+                ? participantNames.get(participantEndpoint)
+                : undefined,
+            connectorName,
+            createdAt: new Date(r.createdAt as unknown as string).toISOString(),
+        };
+    });
 };
