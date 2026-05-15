@@ -20,6 +20,10 @@ import { handle } from './handler';
 import axios from 'axios';
 import { IncomingHttpHeaders } from 'node:http';
 
+/**
+ * SupervisorContainer is a singleton class that manages the NodeSupervisor instance and provides methods to interact with it.
+ * It also sets up the necessary callbacks for the PipelineProcessor and Ext.Resolver to handle node communication and processing.
+ */
 export class SupervisorContainer {
     private static instance: SupervisorContainer;
     private nodeSupervisor: NodeSupervisor;
@@ -38,6 +42,11 @@ export class SupervisorContainer {
         return SupervisorContainer.instance;
     }
 
+    /**
+     * Creates and starts a new chain using the NodeSupervisor instance
+     * @param config
+     * @param data
+     */
     public async createAndStartChain(
         config: ChainConfig,
         data: any
@@ -161,9 +170,7 @@ export class SupervisorContainer {
                 nextNodeResolver,
             }): Promise<PipelineData> => {
                 Logger.info({
-                    message: `PipelineProcessor pre callback invoked - Connector: ${
-                        this.uid
-                    }, Target: ${targetId}`,
+                    message: `PipelineProcessor pre callback invoked - Connector: ${this.uid}, Target: ${targetId}`,
                 });
                 return await nodePreCallbackService({
                     targetId,
@@ -201,6 +208,41 @@ export class SupervisorContainer {
                 return baseUrl;
             },
         });
+
+        // Override the remote service callback registered internally by setResolverCallbacks
+        // to prevent UnhandledPromiseRejection crashes when a remote connector returns an
+        // HTTP error (e.g. 500). The dpcp-library's remoteServiceCallback does an explicit
+        // `throw` after logging, which — being async and fire-and-forget — escapes any
+        // surrounding try/catch and would otherwise crash the process.
+        const hostResolverFn = (targetId: string, meta?: PipelineMeta) => {
+            if (meta?.resolver !== undefined) return meta.resolver;
+            const url = new URL(targetId);
+            return `${url.protocol}//${url.hostname}${
+                url.port ? ':' + url.port : ''
+            }`;
+        };
+        NodeSupervisor.retrieveService().setRemoteServiceCallback(
+            async (payload: CallbackPayload) => {
+                try {
+                    await Ext.Resolver.remoteServiceCallback({
+                        cbPayload: payload,
+                        hostResolver: hostResolverFn,
+                        path: '/service-chain/node/run',
+                    });
+                } catch (err) {
+                    const error = err as Error;
+                    Logger.error({
+                        message: `[remoteServiceCallback] Remote connector returned an error — Chain: ${
+                            (payload as any)?.chainId ?? 'unknown'
+                        }, Target: ${
+                            (payload as any)?.targetId ?? 'unknown'
+                        }. Error: ${error.message}${
+                            error.stack ? ` | Stack: ${error.stack}` : ''
+                        }`,
+                    });
+                }
+            }
+        );
 
         await Ext.Reporting.setMonitoringCallbacks({
             paths: {

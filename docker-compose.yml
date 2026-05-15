@@ -2,8 +2,10 @@ services:
   dataspace-connector:
     image: dataspace-connector:latest
     container_name: ${NAME}-dataspace-connector
-    restart: unless-stopped
+    restart: on-failure
     tty: true
+    command: >
+      sh -c "sleep $${STARTUP_DELAY:-0} && node dist/index.js"
     volumes:
       - './.env/:/usr/src/app/.env'
       - './config.json:/usr/src/app/src/config.json:ro'
@@ -12,6 +14,7 @@ services:
       NAME: ${NAME}
       DNS: ${DNS}
       PORT: ${PORT}
+      STARTUP_DELAY: ${STARTUP_DELAY:-0}
     depends_on:
       - mongodb
     labels:
@@ -34,7 +37,7 @@ services:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
       MONGO_INITDB_DATABASE: dataspace-connector
-    restart: unless-stopped
+    restart: on-failure
     volumes:
       - ./data:/data/db
       - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
@@ -44,7 +47,7 @@ services:
   pdc-dashboard:
     image: dataspace-connector-dashboard:latest
     container_name: ${NAME}-dashboard
-    restart: unless-stopped
+    restart: on-failure
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=web"
