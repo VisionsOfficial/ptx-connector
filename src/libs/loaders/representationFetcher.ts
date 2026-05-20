@@ -16,13 +16,14 @@ import {
 } from '../../utils/types/representationFetcherType';
 import {
     GetObjectCommand,
-    PutObjectCommand,
     S3Client,
 } from '@aws-sdk/client-s3';
+import { Upload } from '@aws-sdk/lib-storage';
 import { Readable } from 'stream';
 import { NodeHttpHandler } from '@aws-sdk/node-http-handler';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import { randomUUID } from 'node:crypto';
+import {Logger} from "../loggers";
 
 /**
  * POST data to given representation URL
@@ -50,6 +51,8 @@ export const postRepresentation = async (params: {
     targetId?: string;
     representationQueryParams?: string[];
     proxy?: IProxyRepresentation;
+    contentLength?: number;
+    mimeType?: string;
 }) => {
     const {
         resource,
@@ -105,7 +108,6 @@ export const postRepresentation = async (params: {
         const { credentialResponse: cred, isS3 } = await getCredential(
             credential
         );
-        // Loop through the cred array to dynamically add headers
 
         if (isS3) {
             method = 's3';
@@ -128,15 +130,15 @@ export const postRepresentation = async (params: {
                     ? {
                           proxy: false,
                           httpsAgent: new HttpsProxyAgent({
-                              host: axiosProxy.host,
-                              port: axiosProxy.port.toString(),
+                              host: axiosProxy?.host ?? "",
+                              port: axiosProxy?.port?.toString() ?? "",
                               // eslint-disable-next-line @typescript-eslint/ban-ts-comment
                               //@ts-ignore
                               rejectUnauthorized: false,
                           }),
                           httpAgent: new HttpsProxyAgent({
-                              host: axiosProxy.host,
-                              port: axiosProxy.port.toString(),
+                              host: axiosProxy?.host ?? "",
+                              port: axiosProxy?.port?.toString() ?? "",
                               // eslint-disable-next-line @typescript-eslint/ban-ts-comment
                               //@ts-ignore
                               rejectUnauthorized: false,
@@ -158,15 +160,15 @@ export const postRepresentation = async (params: {
                         ? {
                               proxy: false,
                               httpsAgent: new HttpsProxyAgent({
-                                  host: axiosProxy.host,
-                                  port: axiosProxy.port.toString(),
+                                  host: axiosProxy?.host ?? "",
+                                  port: axiosProxy?.port?.toString() ?? "",
                                   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
                                   //@ts-ignore
                                   rejectUnauthorized: false,
                               }),
                               httpAgent: new HttpsProxyAgent({
-                                  host: axiosProxy.host,
-                                  port: axiosProxy.port.toString(),
+                                  host: axiosProxy?.host ?? "",
+                                  port: axiosProxy?.port?.toString() ?? "",
                                   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
                                   //@ts-ignore
                                   rejectUnauthorized: false,
@@ -185,15 +187,15 @@ export const postRepresentation = async (params: {
                     ? {
                           proxy: false,
                           httpsAgent: new HttpsProxyAgent({
-                              host: axiosProxy.host,
-                              port: axiosProxy.port.toString(),
+                              host: axiosProxy?.host ?? "",
+                              port: axiosProxy?.port?.toString() ?? "",
                               // eslint-disable-next-line @typescript-eslint/ban-ts-comment
                               //@ts-ignore
                               rejectUnauthorized: false,
                           }),
                           httpAgent: new HttpsProxyAgent({
-                              host: axiosProxy.host,
-                              port: axiosProxy.port.toString(),
+                              host: axiosProxy?.host ?? "",
+                              port: axiosProxy?.port?.toString() ?? "",
                               // eslint-disable-next-line @typescript-eslint/ban-ts-comment
                               //@ts-ignore
                               rejectUnauthorized: false,
@@ -216,30 +218,25 @@ export const postRepresentation = async (params: {
                 throw new Error('Missing S3 credential content');
             }
 
-            // Parse the URL to get bucket and key
             const parsedUrl = new URL(url);
-            const [, bucketFromUrl, ...keyParts] =
-                parsedUrl.pathname.split('/');
+            const [, bucketFromUrl, ...keyParts] = parsedUrl.pathname.split('/');
             const keyFromUrl = keyParts.join('/');
 
             const requestHandler = new NodeHttpHandler({
                 httpsAgent: new HttpsProxyAgent({
-                    host: axiosProxy.host,
-                    port: axiosProxy.port.toString(),
-                    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+                    host: axiosProxy?.host ?? '',
+                    port: axiosProxy?.port?.toString() ?? '',
                     //@ts-ignore
                     rejectUnauthorized: false,
                 }),
                 httpAgent: new HttpsProxyAgent({
-                    host: axiosProxy.host,
-                    port: axiosProxy.port.toString(),
-                    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+                    host: axiosProxy?.host ?? '',
+                    port: axiosProxy?.port?.toString() ?? '',
                     //@ts-ignore
                     rejectUnauthorized: false,
                 }),
             });
 
-            // Set up AWS credentials
             const s3Client = new S3Client({
                 region: s3Cred?.content?.region ?? 'us-east-1',
                 endpoint: `${parsedUrl.protocol}//${parsedUrl.host}`,
@@ -249,47 +246,74 @@ export const postRepresentation = async (params: {
                 },
                 forcePathStyle: true,
                 ...(axiosProxy.host && axiosProxy.port
-                    ? {
-                          requestHandler: requestHandler as any,
-                      }
+                    ? { requestHandler: requestHandler as any }
                     : {}),
             });
 
-            let dataBody: any;
+            // Determine fileName and effective mimeType
+            const effectiveMimeType =
+                params.mimeType ??
+                dataExchange?.providerData?.mimetype ??
+                'application/json';
 
-            if (
-                !dataExchange?.providerData?.mimetype ||
-                dataExchange?.providerData?.mimetype === 'application/json'
-            ) {
-                dataExchange.providerData.fileName = `${randomUUID()}.json`;
-                dataBody = JSON.stringify(data);
-            } else {
-                dataBody = data;
+            if (!dataExchange.providerData.fileName) {
+                const ext = effectiveMimeType === 'application/json' ? '.json' : '';
+                dataExchange.providerData.fileName = `${randomUUID()}${ext}`;
             }
 
-            const command = new PutObjectCommand({
-                Bucket: bucketFromUrl,
-                Key: keyFromUrl
-                    ? `${keyFromUrl}/${dataExchange.providerData.fileName}`
-                    : dataExchange.providerData.fileName,
-                ContentType: dataExchange.providerData.mimetype,
-                Body: dataBody,
+            const s3Key = keyFromUrl
+                ? `${keyFromUrl}/${dataExchange.providerData.fileName}`
+                : dataExchange.providerData.fileName;
+
+            // Build a Readable stream from data (Buffer, Readable, or object)
+            let bodyStream: Readable;
+            if (data instanceof Readable) {
+                bodyStream = data;
+            } else if (Buffer.isBuffer(data)) {
+                bodyStream = Readable.from(data);
+            } else {
+                const jsonStr = JSON.stringify(data);
+                bodyStream = Readable.from(Buffer.from(jsonStr, 'utf-8'));
+            }
+
+            // Use multipart Upload to stream directly to S3 — no RAM limit
+            const upload = new Upload({
+                client: s3Client,
+                params: {
+                    Bucket: bucketFromUrl,
+                    Key: s3Key,
+                    ContentType: effectiveMimeType,
+                    ...(params.contentLength
+                        ? { ContentLength: params.contentLength }
+                        : {}),
+                    Body: bodyStream,
+                },
+                // Each part = 50 MB, max 4 concurrent uploads
+                partSize: 50 * 1024 * 1024,
+                queueSize: 4,
             });
 
-            const response = await s3Client.send(command);
+            upload.on('httpUploadProgress', (progress: { loaded?: number; total?: number }) => {
+                Logger.info({
+                        message: `S3 upload progress: ${progress.loaded ?? 0} / ${progress.total ?? '?'} bytes`
+                    }
+                );
+            });
+
+            const response = await upload.done();
 
             return {
                 status: 200,
                 statusText: 'OK',
                 headers: {
-                    etag: response.ETag,
-                    'content-type': dataExchange.providerData.mimetype,
+                    etag: (response as any).ETag,
+                    'content-type': effectiveMimeType,
                 },
                 data: {
                     bucket: bucketFromUrl,
-                    key: keyFromUrl,
-                    etag: response.ETag,
-                    versionId: response.VersionId,
+                    key: s3Key,
+                    etag: (response as any).ETag,
+                    versionId: (response as any).VersionId,
                 },
                 config: { url },
             };
@@ -488,15 +512,15 @@ export const getRepresentation = async (params: getPayloadType) => {
                     ? {
                           proxy: false,
                           httpsAgent: new HttpsProxyAgent({
-                              host: axiosProxy.host,
-                              port: axiosProxy.port.toString(),
+                              host: axiosProxy?.host ?? "",
+                              port: axiosProxy?.port?.toString() ?? "",
                               // eslint-disable-next-line @typescript-eslint/ban-ts-comment
                               //@ts-ignore
                               rejectUnauthorized: false,
                           }),
                           httpAgent: new HttpsProxyAgent({
-                              host: axiosProxy.host,
-                              port: axiosProxy.port.toString(),
+                              host: axiosProxy?.host ?? "",
+                              port: axiosProxy?.port?.toString() ?? "",
                               // eslint-disable-next-line @typescript-eslint/ban-ts-comment
                               //@ts-ignore
                               rejectUnauthorized: false,
@@ -516,15 +540,15 @@ export const getRepresentation = async (params: getPayloadType) => {
                     ? {
                           proxy: false,
                           httpsAgent: new HttpsProxyAgent({
-                              host: axiosProxy.host,
-                              port: axiosProxy.port.toString(),
+                              host: axiosProxy?.host ?? "",
+                              port: axiosProxy?.port?.toString() ?? "",
                               // eslint-disable-next-line @typescript-eslint/ban-ts-comment
                               //@ts-ignore
                               rejectUnauthorized: false,
                           }),
                           httpAgent: new HttpsProxyAgent({
-                              host: axiosProxy.host,
-                              port: axiosProxy.port.toString(),
+                              host: axiosProxy?.host ?? "",
+                              port: axiosProxy?.port?.toString() ?? "",
                               // eslint-disable-next-line @typescript-eslint/ban-ts-comment
                               //@ts-ignore
                               rejectUnauthorized: false,
@@ -550,15 +574,15 @@ export const getRepresentation = async (params: getPayloadType) => {
 
             const requestHandler = new NodeHttpHandler({
                 httpsAgent: new HttpsProxyAgent({
-                    host: axiosProxy.host,
-                    port: axiosProxy.port.toString(),
+                    host: axiosProxy?.host ?? "",
+                    port: axiosProxy?.port?.toString() ?? "",
                     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
                     //@ts-ignore
                     rejectUnauthorized: false,
                 }),
                 httpAgent: new HttpsProxyAgent({
-                    host: axiosProxy.host,
-                    port: axiosProxy.port.toString(),
+                    host: axiosProxy?.host ?? "",
+                    port: axiosProxy?.port?.toString() ?? "",
                     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
                     //@ts-ignore
                     rejectUnauthorized: false,
@@ -621,15 +645,15 @@ export const getRepresentation = async (params: getPayloadType) => {
                     ? {
                           proxy: false,
                           httpsAgent: new HttpsProxyAgent({
-                              host: axiosProxy.host,
-                              port: axiosProxy.port.toString(),
+                              host: axiosProxy?.host ?? "",
+                              port: axiosProxy?.port?.toString() ?? "",
                               // eslint-disable-next-line @typescript-eslint/ban-ts-comment
                               //@ts-ignore
                               rejectUnauthorized: false,
                           }),
                           httpAgent: new HttpsProxyAgent({
-                              host: axiosProxy.host,
-                              port: axiosProxy.port.toString(),
+                              host: axiosProxy?.host ?? "",
+                              port: axiosProxy?.port?.toString() ?? "",
                               // eslint-disable-next-line @typescript-eslint/ban-ts-comment
                               //@ts-ignore
                               rejectUnauthorized: false,
@@ -679,7 +703,7 @@ export const postOrPutRepresentation = async (params: postOrPutPayloadType) => {
         if (data._id) delete data._id;
 
         // replace params between {} by id in consent
-        const url = representationUrl.replace(Regexes.userIdParams, () => {
+        const url = representationUrl?.replace(Regexes.userIdParams, () => {
             return params.user;
         });
 

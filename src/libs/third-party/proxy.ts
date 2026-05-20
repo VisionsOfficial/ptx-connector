@@ -34,10 +34,8 @@ export const checkConnectorProxy = async (
         let proxyConfig: AxiosProxyConfig | null = null;
 
         if(props?.configProxy && props?.configProxy?.host && props?.configProxy?.port && props?.configProxy?.protocol) {
-            console.log("'useProxyConfig'")
             proxyConfig = props?.configProxy as AxiosProxyConfig;
         } else if (props?.dataExchangeId && props?.endpoint) {
-            console.log("use dataexchange")
             const dataExchange = await DataExchange.findById(props?.dataExchangeId).lean();
             
             if(!dataExchange) {

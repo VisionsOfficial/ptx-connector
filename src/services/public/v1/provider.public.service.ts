@@ -632,6 +632,90 @@ export const ProviderExportService = async (
     }
 };
 
+const CHUNK_SIZE_BYTES = 50 * 1024 * 1024; // 50 MB
+
+/**
+ * Convert data to Buffer regardless of type
+ */
+const toBuffer = (data: any): Buffer => {
+    if (Buffer.isBuffer(data)) return data;
+    if (typeof data === 'string') return Buffer.from(data, 'utf-8');
+    return Buffer.from(JSON.stringify(data), 'utf-8');
+};
+
+/**
+ * Send data in chunks to avoid ENOBUFS on large payloads
+ */
+const sendDataInChunks = async (props: {
+    dataExchange: IDataExchange;
+    data: any;
+    endpointData?: any;
+}): Promise<any> => {
+    const buffer = toBuffer(props.data);
+
+    if (buffer.length <= CHUNK_SIZE_BYTES) {
+        // Small enough — send as-is (no chunk headers)
+        const [res] = await handle(
+            consumerImport(
+                props.dataExchange.consumerEndpoint,
+                props.dataExchange._id.toString(),
+                props.data,
+                props.endpointData?.apiResponseRepresentation,
+                props.dataExchange.providerData?.mimetype
+            )
+        );
+        return res;
+    }
+
+    // Large payload — send in chunks
+    const totalChunks = Math.ceil(buffer.length / CHUNK_SIZE_BYTES);
+
+    Logger.info({
+        message: `Payload size is ${buffer.length} bytes, splitting into ${totalChunks} chunks of ${CHUNK_SIZE_BYTES} bytes`,
+        location: 'triggerGenericFlow',
+    });
+
+    // Persist totalChunks in the dataExchange so the consumer knows how many chunks to expect
+    await props.dataExchange.updateProviderData({
+        checksum: props.dataExchange.providerData?.checksum,
+        mimeType: props.dataExchange.providerData?.mimetype,
+        size: props.dataExchange.providerData?.size,
+        fileName: props.dataExchange.providerData?.fileName,
+        totalChunks,
+    });
+
+    Logger.info({
+        message: `totalChunks (${totalChunks}) saved in dataExchange ${props.dataExchange._id}`,
+        location: 'sendDataInChunks',
+    });
+
+    let lastRes: any;
+    for (let i = 0; i < totalChunks; i++) {
+        const start = i * CHUNK_SIZE_BYTES;
+        const chunk = buffer.slice(start, start + CHUNK_SIZE_BYTES);
+
+        Logger.info({
+            message: `Sending chunk ${i + 1}/${totalChunks} (${chunk.length} bytes)`,
+            location: 'triggerGenericFlow',
+        });
+
+        const [res] = await handle(
+            consumerImport(
+                props.dataExchange.consumerEndpoint,
+                props.dataExchange._id.toString(),
+                chunk,
+                props.endpointData?.apiResponseRepresentation,
+                props.dataExchange.providerData?.mimetype,
+                i,           // chunkIndex
+                totalChunks  // totalChunks
+            )
+        );
+        lastRes = res;
+    }
+
+    return lastRes;
+};
+
 /**
  * Trigger the generic flow to send data to consumer endpoint
  * @param props
@@ -645,16 +729,11 @@ const triggerGenericFlow = async (props: {
     endpointData?: any;
 }) => {
     try {
-        //Send the data to generic endpoint
-        const [consumerImportRes] = await handle(
-            consumerImport(
-                props.dataExchange.consumerEndpoint,
-                props.dataExchange._id.toString(),
-                props.data,
-                props.endpointData?.apiResponseRepresentation,
-                props.dataExchange.providerData.mimetype
-            )
-        );
+        const consumerImportRes = await sendDataInChunks({
+            dataExchange: props.dataExchange,
+            data: props.data,
+            endpointData: props.endpointData,
+        });
 
         if (consumerImportRes) {
             const names = await pepLeftOperandsVerification({
@@ -671,5 +750,13 @@ const triggerGenericFlow = async (props: {
             message: e.message,
             location: e.stack,
         });
+
+        if ((e as any).code === 'ENOBUFS') {
+            await props.dataExchange?.updateStatus(
+                DataExchangeStatusEnum.PROVIDER_EXPORT_ERROR,
+                'Network buffer overflow: payload too large to send. Try reducing data size or enabling streaming.',
+                await getEndpoint()
+            );
+        }
     }
 };

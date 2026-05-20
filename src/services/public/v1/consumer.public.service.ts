@@ -549,8 +549,10 @@ export const consumerImportService = async (props: {
     providerDataExchange: string;
     data: any;
     apiResponseRepresentation: any;
+    contentLength?: number;
+    mimeType?: string;
 }) => {
-    const { providerDataExchange, data, apiResponseRepresentation } = props;
+    const { providerDataExchange, data, apiResponseRepresentation, contentLength, mimeType } = props;
 
     // Fix: If data is an array of numbers (serialized Buffer), convert it back to Buffer
     let processedData = data;
@@ -598,6 +600,8 @@ export const consumerImportService = async (props: {
                                     ?.queryParams,
                             proxy: catalogSoftwareResource?.representation
                                 ?.proxy,
+                            contentLength,
+                            mimeType,
                         })
                     );
 

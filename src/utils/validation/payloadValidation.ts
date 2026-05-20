@@ -2,7 +2,7 @@ import { IncomingHttpHeaders } from 'node:http';
 import { DataExchange } from '../types/dataExchange';
 import { CallbackMeta } from '../types/callbackMeta';
 import { CallbackPayload } from 'dpcp-library/lib';
-import { checksum } from '../../functions/checksum.function';
+import { checksum, checksumFromFilePath } from '../../functions/checksum.function';
 import { Logger } from '../../libs/loggers';
 import { DataExchangeStatusEnum } from '../enums/dataExchangeStatusEnum';
 import { getEndpoint } from '../../libs/loaders/configuration';
@@ -93,7 +93,7 @@ export const verifyPayloadServiceChain = async (
 };
 
 export const verifyPayloadDefault = async (
-    payload: { dataExchange: string; data: any },
+    payload: { dataExchange: string; data: any; filePath?: string },
     reqHeaders: IncomingHttpHeaders
 ) => {
     const dataExchange = await DataExchange.findOne({
@@ -119,19 +119,20 @@ export const verifyPayloadDefault = async (
             !!reqHeaders['content-length'],
             'contentLength'
         );
-        payloadValidationAssert(!!payload.data, 'remoteData');
+        payloadValidationAssert(!!payload.data || !!payload.filePath, 'remoteData');
 
-        if (dataExchange.providerData.checksum === checksum(payload.data)) {
+        // Compute checksum — use file path for large files to avoid RAM issues
+        const computedChecksum = payload.filePath
+            ? await checksumFromFilePath(payload.filePath)
+            : checksum(payload.data);
+
+        if (dataExchange.providerData.checksum === computedChecksum) {
             Logger.info({
                 message: `Checksum validation successful for DataExchange ID: ${dataExchange._id}`,
                 location: 'verifyPayloadDefault',
             });
         } else {
-            message = `Checksum validation failed for DataExchange ID: ${
-                dataExchange._id
-            }, expected: ${dataExchange.providerData.checksum}, got: ${checksum(
-                payload.data
-            )}`;
+            message = `Checksum validation failed for DataExchange ID: ${dataExchange._id}, expected: ${dataExchange.providerData.checksum}, got: ${computedChecksum}`;
             throw new Error(message);
         }
 

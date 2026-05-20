@@ -16,12 +16,24 @@ import { ExchangeError } from '../../../libs/errors/exchangeError';
 import axios from 'axios';
 import { verifyPayloadDefault } from '../../../utils/validation/payloadValidation';
 import { ObjectId } from 'mongodb';
-import {
-    amqpPublisher,
-    kafkaPublisher,
-    websocketPublisher,
-} from '../../../utils/publisher';
 import { checkConnectorProxy } from '../../../libs/third-party/proxy';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
+
+// Track temp file paths per dataExchange: Map<exchangeId, { filePath, receivedChunks, totalChunks, contentType }>
+const chunkFileStore = new Map<
+    string,
+    {
+        filePath: string;
+        receivedChunks: Set<number>;
+        totalChunks: number;
+        contentType: string;
+    }
+>();
+
+// In-memory chunk store: Map<dataExchangeId, Map<chunkIndex, Buffer>>
+const chunkStore = new Map<string, Map<number, Buffer>>();
 
 /**
  * trigger the data exchange between provider and consumer in a bilateral or ecosystem contract
@@ -263,6 +275,117 @@ export const consumerImport = async (
             apiResponseRepresentation =
                 req.headers['x-api-response-representation'];
         }
+
+        // --- Chunk reassembly (disk-based, no RAM accumulation) ---
+        const chunkIndexHeader = req.headers['x-chunk-index'];
+        const chunkTotalHeader = req.headers['x-chunk-total'];
+
+        if (chunkIndexHeader !== undefined && chunkTotalHeader !== undefined) {
+            const chunkIndex = parseInt(chunkIndexHeader as string, 10);
+            const totalChunks = parseInt(chunkTotalHeader as string, 10);
+            const exchangeId = providerDataExchange as string;
+            const contentType = (req.headers['content-type'] as string) ?? 'application/octet-stream';
+
+            // Convert incoming data to Buffer
+            const chunkBuffer: Buffer = Buffer.isBuffer(data)
+                ? data
+                : Buffer.isBuffer(req.body)
+                ? req.body
+                : Buffer.from(
+                      typeof data === 'string' ? data : JSON.stringify(data),
+                      'utf-8'
+                  );
+
+            // Init temp file for this exchange
+            if (!chunkFileStore.has(exchangeId)) {
+                const filePath = path.join(os.tmpdir(), `ptc-chunk-${exchangeId}`);
+                // Pre-allocate empty file
+                fs.writeFileSync(filePath, '');
+                chunkFileStore.set(exchangeId, {
+                    filePath,
+                    receivedChunks: new Set(),
+                    totalChunks,
+                    contentType,
+                });
+            }
+
+            const store = chunkFileStore.get(exchangeId);
+
+            // Write chunk at its correct byte offset
+            const offset = chunkIndex * (50 * 1024 * 1024); // 50 MB chunks
+            const fd = fs.openSync(store.filePath, 'r+');
+            // Ensure file is large enough
+            const currentSize = fs.fstatSync(fd).size;
+            if (currentSize < offset) {
+                // Extend with zeros up to offset
+                fs.ftruncateSync(fd, offset);
+            }
+            const buf = Buffer.alloc(chunkBuffer.length);
+            chunkBuffer.copy(buf);
+            fs.writeSync(fd, buf, 0, buf.length, offset);
+            fs.closeSync(fd);
+
+            store.receivedChunks.add(chunkIndex);
+
+            Logger.info({
+                message: `Received chunk ${chunkIndex + 1}/${totalChunks} for dataExchange ${exchangeId} (${chunkBuffer.length} bytes) → written to disk at offset ${offset}`,
+                location: 'consumerImport',
+            });
+
+            // Not all chunks received yet
+            if (store.receivedChunks.size < totalChunks) {
+                return restfulResponse(res, 200, {
+                    success: true,
+                    message: `Chunk ${chunkIndex + 1}/${totalChunks} received`,
+                });
+            }
+
+            // All chunks received — validate then stream to service
+            const { filePath } = store;
+            const totalSize = fs.statSync(filePath).size;
+            chunkFileStore.delete(exchangeId);
+
+            Logger.info({
+                message: `All ${totalChunks} chunks written to disk for dataExchange ${exchangeId} (total: ${totalSize} bytes) — streaming to service`,
+                location: 'consumerImport',
+            });
+
+            // Validate checksum/mimetype/size from the file on disk (no stream consumed)
+            if (!contentType.includes('application/json')) {
+                await verifyPayloadDefault(
+                    {
+                        dataExchange: providerDataExchange,
+                        data: null,
+                        filePath,
+                    },
+                    {
+                        ...req.headers,
+                        'content-length': String(totalSize),
+                    }
+                );
+            }
+
+            // Create the stream AFTER validation so it's not consumed twice
+            const fileStream = fs.createReadStream(filePath);
+
+            // Cleanup temp file after stream ends
+            fileStream.on('close', () => {
+                fs.unlink(filePath, (err) => {
+                    if (err) Logger.error({ message: `Failed to delete temp file ${filePath}: ${err.message}`, location: 'consumerImport' });
+                });
+            });
+
+            await consumerImportService({
+                providerDataExchange,
+                data: fileStream,
+                apiResponseRepresentation,
+                contentLength: totalSize,
+                mimeType: contentType,
+            });
+
+            return restfulResponse(res, 200, { success: true });
+        }
+        // --- End chunk reassembly ---
 
         if (!req.headers['content-type'].includes('application/json')) {
             await verifyPayloadDefault(
