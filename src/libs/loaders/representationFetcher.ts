@@ -14,16 +14,13 @@ import {
     getPayloadType,
     postOrPutPayloadType,
 } from '../../utils/types/representationFetcherType';
-import {
-    GetObjectCommand,
-    S3Client,
-} from '@aws-sdk/client-s3';
+import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
 import { Readable } from 'stream';
 import { NodeHttpHandler } from '@aws-sdk/node-http-handler';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import { randomUUID } from 'node:crypto';
-import {Logger} from "../loggers";
+import { Logger } from '../loggers';
 
 /**
  * POST data to given representation URL
@@ -130,15 +127,15 @@ export const postRepresentation = async (params: {
                     ? {
                           proxy: false,
                           httpsAgent: new HttpsProxyAgent({
-                              host: axiosProxy?.host ?? "",
-                              port: axiosProxy?.port?.toString() ?? "",
+                              host: axiosProxy?.host ?? '',
+                              port: axiosProxy?.port?.toString() ?? '',
                               // eslint-disable-next-line @typescript-eslint/ban-ts-comment
                               //@ts-ignore
                               rejectUnauthorized: false,
                           }),
                           httpAgent: new HttpsProxyAgent({
-                              host: axiosProxy?.host ?? "",
-                              port: axiosProxy?.port?.toString() ?? "",
+                              host: axiosProxy?.host ?? '',
+                              port: axiosProxy?.port?.toString() ?? '',
                               // eslint-disable-next-line @typescript-eslint/ban-ts-comment
                               //@ts-ignore
                               rejectUnauthorized: false,
@@ -160,15 +157,15 @@ export const postRepresentation = async (params: {
                         ? {
                               proxy: false,
                               httpsAgent: new HttpsProxyAgent({
-                                  host: axiosProxy?.host ?? "",
-                                  port: axiosProxy?.port?.toString() ?? "",
+                                  host: axiosProxy?.host ?? '',
+                                  port: axiosProxy?.port?.toString() ?? '',
                                   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
                                   //@ts-ignore
                                   rejectUnauthorized: false,
                               }),
                               httpAgent: new HttpsProxyAgent({
-                                  host: axiosProxy?.host ?? "",
-                                  port: axiosProxy?.port?.toString() ?? "",
+                                  host: axiosProxy?.host ?? '',
+                                  port: axiosProxy?.port?.toString() ?? '',
                                   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
                                   //@ts-ignore
                                   rejectUnauthorized: false,
@@ -187,15 +184,15 @@ export const postRepresentation = async (params: {
                     ? {
                           proxy: false,
                           httpsAgent: new HttpsProxyAgent({
-                              host: axiosProxy?.host ?? "",
-                              port: axiosProxy?.port?.toString() ?? "",
+                              host: axiosProxy?.host ?? '',
+                              port: axiosProxy?.port?.toString() ?? '',
                               // eslint-disable-next-line @typescript-eslint/ban-ts-comment
                               //@ts-ignore
                               rejectUnauthorized: false,
                           }),
                           httpAgent: new HttpsProxyAgent({
-                              host: axiosProxy?.host ?? "",
-                              port: axiosProxy?.port?.toString() ?? "",
+                              host: axiosProxy?.host ?? '',
+                              port: axiosProxy?.port?.toString() ?? '',
                               // eslint-disable-next-line @typescript-eslint/ban-ts-comment
                               //@ts-ignore
                               rejectUnauthorized: false,
@@ -219,7 +216,8 @@ export const postRepresentation = async (params: {
             }
 
             const parsedUrl = new URL(url);
-            const [, bucketFromUrl, ...keyParts] = parsedUrl.pathname.split('/');
+            const [, bucketFromUrl, ...keyParts] =
+                parsedUrl.pathname.split('/');
             const keyFromUrl = keyParts.join('/');
 
             const requestHandler = new NodeHttpHandler({
@@ -252,12 +250,13 @@ export const postRepresentation = async (params: {
 
             // Determine fileName and effective mimeType
             const effectiveMimeType =
-                params.mimeType ??
+                params?.mimeType ??
                 dataExchange?.providerData?.mimetype ??
                 'application/json';
 
             if (!dataExchange.providerData.fileName) {
-                const ext = effectiveMimeType === 'application/json' ? '.json' : '';
+                const ext =
+                    effectiveMimeType === 'application/json' ? '.json' : '';
                 dataExchange.providerData.fileName = `${randomUUID()}${ext}`;
             }
 
@@ -293,12 +292,16 @@ export const postRepresentation = async (params: {
                 queueSize: 4,
             });
 
-            upload.on('httpUploadProgress', (progress: { loaded?: number; total?: number }) => {
-                Logger.info({
-                        message: `S3 upload progress: ${progress.loaded ?? 0} / ${progress.total ?? '?'} bytes`
-                    }
-                );
-            });
+            upload.on(
+                'httpUploadProgress',
+                (progress: { loaded?: number; total?: number }) => {
+                    Logger.info({
+                        message: `S3 upload progress: ${
+                            progress.loaded ?? 0
+                        } / ${progress.total ?? '?'} bytes`,
+                    });
+                }
+            );
 
             const response = await upload.done();
 
@@ -512,15 +515,15 @@ export const getRepresentation = async (params: getPayloadType) => {
                     ? {
                           proxy: false,
                           httpsAgent: new HttpsProxyAgent({
-                              host: axiosProxy?.host ?? "",
-                              port: axiosProxy?.port?.toString() ?? "",
+                              host: axiosProxy?.host ?? '',
+                              port: axiosProxy?.port?.toString() ?? '',
                               // eslint-disable-next-line @typescript-eslint/ban-ts-comment
                               //@ts-ignore
                               rejectUnauthorized: false,
                           }),
                           httpAgent: new HttpsProxyAgent({
-                              host: axiosProxy?.host ?? "",
-                              port: axiosProxy?.port?.toString() ?? "",
+                              host: axiosProxy?.host ?? '',
+                              port: axiosProxy?.port?.toString() ?? '',
                               // eslint-disable-next-line @typescript-eslint/ban-ts-comment
                               //@ts-ignore
                               rejectUnauthorized: false,
@@ -540,15 +543,15 @@ export const getRepresentation = async (params: getPayloadType) => {
                     ? {
                           proxy: false,
                           httpsAgent: new HttpsProxyAgent({
-                              host: axiosProxy?.host ?? "",
-                              port: axiosProxy?.port?.toString() ?? "",
+                              host: axiosProxy?.host ?? '',
+                              port: axiosProxy?.port?.toString() ?? '',
                               // eslint-disable-next-line @typescript-eslint/ban-ts-comment
                               //@ts-ignore
                               rejectUnauthorized: false,
                           }),
                           httpAgent: new HttpsProxyAgent({
-                              host: axiosProxy?.host ?? "",
-                              port: axiosProxy?.port?.toString() ?? "",
+                              host: axiosProxy?.host ?? '',
+                              port: axiosProxy?.port?.toString() ?? '',
                               // eslint-disable-next-line @typescript-eslint/ban-ts-comment
                               //@ts-ignore
                               rejectUnauthorized: false,
@@ -574,15 +577,15 @@ export const getRepresentation = async (params: getPayloadType) => {
 
             const requestHandler = new NodeHttpHandler({
                 httpsAgent: new HttpsProxyAgent({
-                    host: axiosProxy?.host ?? "",
-                    port: axiosProxy?.port?.toString() ?? "",
+                    host: axiosProxy?.host ?? '',
+                    port: axiosProxy?.port?.toString() ?? '',
                     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
                     //@ts-ignore
                     rejectUnauthorized: false,
                 }),
                 httpAgent: new HttpsProxyAgent({
-                    host: axiosProxy?.host ?? "",
-                    port: axiosProxy?.port?.toString() ?? "",
+                    host: axiosProxy?.host ?? '',
+                    port: axiosProxy?.port?.toString() ?? '',
                     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
                     //@ts-ignore
                     rejectUnauthorized: false,
@@ -645,15 +648,15 @@ export const getRepresentation = async (params: getPayloadType) => {
                     ? {
                           proxy: false,
                           httpsAgent: new HttpsProxyAgent({
-                              host: axiosProxy?.host ?? "",
-                              port: axiosProxy?.port?.toString() ?? "",
+                              host: axiosProxy?.host ?? '',
+                              port: axiosProxy?.port?.toString() ?? '',
                               // eslint-disable-next-line @typescript-eslint/ban-ts-comment
                               //@ts-ignore
                               rejectUnauthorized: false,
                           }),
                           httpAgent: new HttpsProxyAgent({
-                              host: axiosProxy?.host ?? "",
-                              port: axiosProxy?.port?.toString() ?? "",
+                              host: axiosProxy?.host ?? '',
+                              port: axiosProxy?.port?.toString() ?? '',
                               // eslint-disable-next-line @typescript-eslint/ban-ts-comment
                               //@ts-ignore
                               rejectUnauthorized: false,
@@ -882,7 +885,7 @@ const headerProcessing = (params: {
             'x-ptx-contractId': dataExchange.contract.split('/').pop(),
             'x-ptx-contractURL': dataExchange.contract,
             'content-type':
-                dataExchange.providerData.mimetype || 'application/json',
+                dataExchange?.providerData?.mimetype || 'application/json',
         };
     }
 

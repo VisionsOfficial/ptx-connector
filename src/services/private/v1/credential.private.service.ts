@@ -38,7 +38,10 @@ export const getCredential = async (credential: string) => {
         credentialResponse.push(await Credential.findById(credential).lean());
     }
 
-    return {credentialResponse, isS3: credentialResponse.some(cred => cred.type === 's3') };
+    return {
+        credentialResponse,
+        isS3: credentialResponse.some((cred) => cred.type === 's3'),
+    };
 };
 
 /**

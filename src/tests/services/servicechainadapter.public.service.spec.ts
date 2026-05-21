@@ -3,6 +3,7 @@ import sinon from 'sinon';
 import { ServiceChainAdapterService } from '../../services/public/v1/servicechainadapter.public.service';
 import { Logger } from '../../libs/loggers';
 import axios from "axios";
+import * as configuration from '../../libs/loaders/configuration';
 
 describe('ServiceChainAdapterService', () => {
     let payload: any;
@@ -13,6 +14,10 @@ describe('ServiceChainAdapterService', () => {
             chainId: '@supervisor:68ff613bea7a56c751b61556-1761567035943-8fddeb34',
             representationUrl: 'https://representation.url'
         };
+    });
+
+    beforeEach(() => {
+        sinon.stub(configuration, 'getConfigFile').returns({ serviceChainAdapterTimeout: 1 } as any);
 
         sinon.stub(axios, 'get').callsFake(async (url: string) => {
             if (url === 'https://representation.url') {
