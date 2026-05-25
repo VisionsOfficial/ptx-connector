@@ -173,8 +173,18 @@ export const consumerExchange = async (
                 dataExchange._id
             );
 
-            await ProviderExportService(
-                updatedDataExchange.consumerDataExchange
+            ProviderExportService(updatedDataExchange.consumerDataExchange).catch(
+                (err) => {
+                    Logger.error({
+                        message: `Provider export Service failed: ${err.message}`,
+                        location: 'consumerExchange - ProviderExportService',
+                    });
+                    throw new ExchangeError(
+                        `Provider export Service failed: ${err.message}`,
+                        'consumerExchange - providerExport',
+                        500
+                    );
+                }
             );
         }
         //default protocol and request provider
@@ -190,14 +200,19 @@ export const consumerExchange = async (
                     500
                 );
             }
-            // Fire and forget - don't wait for provider response
-            // The status polling loop below will handle completion
+
             providerExport(providerEndpoint, dataExchange._id.toString()).catch(
                 (err) => {
                     Logger.error({
                         message: `Provider export failed: ${err.message}`,
                         location: 'consumerExchange - providerExport',
                     });
+
+                    throw new ExchangeError(
+                        `Provider export failed: ${err.message}`,
+                        'consumerExchange - providerExport',
+                        500
+                    );
                 }
             );
         }
@@ -228,11 +243,6 @@ export const consumerExchange = async (
             }
             await new Promise((resolve) => setTimeout(resolve, 500)); // Add 500ms delay between checks
         }
-
-        //Publisher
-        // amqpPublisher(dataExchange);
-        // kafkaPublisher(dataExchange);
-        // websocketPublisher(dataExchange);
 
         return restfulResponse(res, 200, { success, dataExchange, message });
     } catch (e) {

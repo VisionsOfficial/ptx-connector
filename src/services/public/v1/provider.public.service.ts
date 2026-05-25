@@ -500,72 +500,6 @@ export const ProviderExportService = async (
                                 }
                                 break;
                             }
-                            // case 'WEBSOCKET': {
-                            //     try {
-                            //         // WEBSOCKET implementation placeholder
-                            //         Logger.info( {
-                            //             message: `WEBSOCKET representation type selected for ${resourceSD}, but not implemented.`,
-                            //             location: 'ProviderExportService',
-                            //         });
-                            //
-                            //         const websocketConfig =
-                            //             endpointData?.representation?.websocket;
-                            //
-                            //         if (!websocketConfig.url) {
-                            //             let message = `No websocket url defined for ${resourceSD} in catalog`
-                            //             Logger.error({
-                            //                 message: message,
-                            //                 location: 'ProviderExportService',
-                            //             });
-                            //            throw new Error(message)
-                            //         }
-                            //
-                            //         data = websocketConfig;
-                            //         await websocketPublisher(dataExchange);
-                            //
-                            //     } catch (e) {
-                            //         Logger.error({
-                            //             message: `Error retrieving WEBSOCKET data for ${resourceSD}: ${e.message}`,
-                            //             location: 'ProviderExportService',
-                            //         });
-                            //
-                            //         throw e;
-                            //     }
-                            //     break;
-                            // }
-                            // case 'AMQP': {
-                            //     try {
-                            //         // AMPQP implementation placeholder
-                            //         Logger.info( {
-                            //             message: `AMPQP representation type selected for ${resourceSD}, but not implemented.`,
-                            //             location: 'ProviderExportService',
-                            //         });
-                            //
-                            //         const amqpConfig =
-                            //             endpointData?.representation?.ampqp;
-                            //
-                            //         if (!amqpConfig.url) {
-                            //             let message = `No ampqp url defined for ${resourceSD} in catalog`
-                            //             Logger.error({
-                            //                 message: message,
-                            //                 location: 'ProviderExportService',
-                            //             });
-                            //            throw new Error(message)
-                            //         }
-                            //
-                            //         data = amqpConfig;
-                            //         await amqpPublisher(dataExchange);
-                            //
-                            //     } catch (e) {
-                            //         Logger.error({
-                            //             message: `Error retrieving AMPQP data for ${resourceSD}: ${e.message}`,
-                            //             location: 'ProviderExportService',
-                            //         });
-                            //
-                            //         return e;
-                            //     }
-                            //     break;
-                            // }
                             default: {
                                 new Error('Representation type not supported');
                             }
@@ -729,22 +663,11 @@ const triggerGenericFlow = async (props: {
     endpointData?: any;
 }) => {
     try {
-        const consumerImportRes = await sendDataInChunks({
+        await sendDataInChunks({
             dataExchange: props.dataExchange,
             data: props.data,
             endpointData: props.endpointData,
         });
-
-        if (consumerImportRes) {
-            const names = await pepLeftOperandsVerification({
-                targetResource: props.serviceOffering,
-            });
-            await processLeftOperands(
-                names,
-                props.contractID,
-                props.resourceID
-            );
-        }
     } catch (e) {
         Logger.error({
             message: e.message,
