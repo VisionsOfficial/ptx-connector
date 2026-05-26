@@ -566,8 +566,6 @@ export const ProviderExportService = async (
     }
 };
 
-const CHUNK_SIZE_BYTES = 50 * 1024 * 1024; // 50 MB
-
 /**
  * Convert data to Buffer regardless of type
  */
@@ -587,6 +585,8 @@ const sendDataInChunks = async (props: {
 }): Promise<any> => {
     const buffer = toBuffer(props.data);
 
+    const CHUNK_SIZE_BYTES = (parseInt(process.env.CHUNK_SIZE) || 50) * 1024 * 1024;
+
     if (buffer.length <= CHUNK_SIZE_BYTES) {
         // Small enough — send as-is (no chunk headers)
         const [res] = await handle(
@@ -603,19 +603,21 @@ const sendDataInChunks = async (props: {
 
     // Large payload — send in chunks
     const totalChunks = Math.ceil(buffer.length / CHUNK_SIZE_BYTES);
+    const chunkSizeMB = parseInt(process.env.CHUNK_SIZE) || 50;
 
     Logger.info({
         message: `Payload size is ${buffer.length} bytes, splitting into ${totalChunks} chunks of ${CHUNK_SIZE_BYTES} bytes`,
         location: 'triggerGenericFlow',
     });
 
-    // Persist totalChunks in the dataExchange so the consumer knows how many chunks to expect
+    // Persist totalChunks AND chunkSize in the dataExchange so the consumer knows how many chunks to expect and their size
     await props.dataExchange.updateProviderData({
         checksum: props.dataExchange.providerData?.checksum,
         mimeType: props.dataExchange.providerData?.mimetype,
         size: props.dataExchange.providerData?.size,
         fileName: props.dataExchange.providerData?.fileName,
         totalChunks,
+        chunkSize: chunkSizeMB,
     });
 
     Logger.info({

@@ -57,7 +57,7 @@ export const checkConnectorProxy = async (
             }
         }
 
-        if (proxyConfig) {
+        if (proxyConfig && proxyConfig?.host && proxyConfig?.port && proxyConfig?.protocol) {
             const buildProxyUrl = (axiosProxy: AxiosProxyConfig): string => {
                 const protocol = axiosProxy.protocol;
                 const auth = axiosProxy.username && axiosProxy.password

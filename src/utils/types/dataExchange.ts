@@ -74,6 +74,7 @@ interface IDataExchange {
         mimetype: string;
         fileName: string;
         totalChunks?: number;
+        chunkSize?: number;
     };
     providerParams?: IParams;
     consumerParams?: IParams;
@@ -98,6 +99,7 @@ interface IDataExchange {
         fileName?: string;
         size: number;
         totalChunks?: number;
+        chunkSize?: number;
     }): Promise<IDataExchange>;
     syncWithInfrastructure(
         service: string,
@@ -165,6 +167,7 @@ const schema = new Schema({
         mimetype: String,
         fileName: String,
         totalChunks: Number,
+        chunkSize: Number,
     },
     status: String,
     createdAt: Date,
@@ -396,13 +399,19 @@ schema.methods.updateProviderData = async function (payload: {
     checksum: string;
     fileName: string;
     totalChunks?: number;
+    chunkSize?: number;
 }) {
     this.providerData = {
         mimetype: payload.mimeType,
         size: payload.size,
         fileName: payload.fileName,
         checksum: payload.checksum,
-        ...(payload.totalChunks !== undefined ? { totalChunks: payload.totalChunks } : {}),
+        ...(payload.totalChunks !== undefined
+            ? { totalChunks: payload.totalChunks }
+            : {}),
+        ...(payload.chunkSize !== undefined
+            ? { chunkSize: payload.chunkSize }
+            : {}),
     };
     await axios.put(
         urlChecker(

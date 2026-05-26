@@ -308,7 +308,7 @@ export const consumerImport = async (
 
             // Init temp file for this exchange
             if (!chunkFileStore.has(exchangeId)) {
-                const filePath = path.join(os.tmpdir(), `ptc-chunk-${exchangeId}`);
+                const filePath = path.join(os.tmpdir(), `pdc-chunk-${exchangeId}`);
                 // Pre-allocate empty file
                 fs.writeFileSync(filePath, '');
                 chunkFileStore.set(exchangeId, {
@@ -322,7 +322,15 @@ export const consumerImport = async (
             const store = chunkFileStore.get(exchangeId);
 
             // Write chunk at its correct byte offset
-            const offset = chunkIndex * (50 * 1024 * 1024); // 50 MB chunks
+            // Fetch chunkSize from the dataExchange (set by the provider) — fallback to 50 MB
+            const dataExchangeDoc = await DataExchange.findOne({
+                $or: [
+                    { providerDataExchange: exchangeId },
+                    { _id: exchangeId },
+                ],
+            });
+            const chunkSizeMB = dataExchangeDoc?.providerData?.chunkSize ?? 50;
+            const offset = chunkIndex * (chunkSizeMB * 1024 * 1024); // 50 MB chunks
             const fd = fs.openSync(store.filePath, 'r+');
             // Ensure file is large enough
             const currentSize = fs.fstatSync(fd).size;
