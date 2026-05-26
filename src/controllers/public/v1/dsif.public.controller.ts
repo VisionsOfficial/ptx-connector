@@ -353,8 +353,14 @@ export const DsifNegotiationAgreementVerification = async (
                 return;
             }
 
+            const currentCallbackAddress =
+                callbackAddress?.includes('afp.connector') &&
+                !callbackAddress?.includes('2025-1')
+                    ? `${callbackAddress}/2025-1`
+                    : callbackAddress;
+
             await axios.post(
-                `${callbackAddress}/negotiations/${consumerPid}/events`,
+                `${currentCallbackAddress}/negotiations/${consumerPid}/events`,
                 {
                     '@context': [
                         'https://w3id.org/dspace/2025/1/context.jsonld',
@@ -369,7 +375,7 @@ export const DsifNegotiationAgreementVerification = async (
                 }
             );
 
-            // After sending FINALIZED event, update contract state to FINALIZED
+            // Update contract state to FINALIZED
             await axios.put(
                 `${getConfigFile()?.contractUri}dsp/${providerPid}`,
                 {
@@ -442,8 +448,14 @@ const sendAgreementVerification = async (
     try {
         const clientId = consumerPid.split('_')[0];
 
+        const currentCallbackAddress =
+            callbackAddress?.includes('afp.connector') &&
+            !callbackAddress?.includes('2025-1')
+                ? `${callbackAddress}/2025-1`
+                : callbackAddress;
+
         await axios.post(
-            `${callbackAddress}/2025-1/negotiations/${providerPid}/agreement/verification`,
+            `${currentCallbackAddress}/negotiations/${providerPid}/agreement/verification`,
             {
                 '@context': ['https://w3id.org/dspace/2025/1/context.jsonld'],
                 '@type': 'ContractAgreementVerificationMessage',
