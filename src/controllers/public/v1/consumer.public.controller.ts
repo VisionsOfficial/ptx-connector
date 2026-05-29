@@ -91,6 +91,11 @@ export const consumerExchange = async (
             );
         }
 
+        restfulResponse(res, 200, {
+            exchange: dataExchange,
+            dataExchange,
+        });
+
         if (serviceChainId && dataExchange.serviceChain.services.length > 0) {
             for (const service of dataExchange.serviceChain.services) {
                 // Get the infrastructure service information
@@ -184,8 +189,6 @@ export const consumerExchange = async (
                 success = true;
             }
         }
-
-        return restfulResponse(res, 200, { success, dataExchange, message });
     } catch (e) {
         Logger.error({
             message: e.message,

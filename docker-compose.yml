@@ -1,6 +1,8 @@
 services:
   dataspace-connector:
-    image: dataspace-connector:latest
+    build:
+      context: .
+      dockerfile: docker/app/Dockerfile
     container_name: ${NAME}-dataspace-connector
     restart: unless-stopped
     tty: true
@@ -12,8 +14,8 @@ services:
       NAME: ${NAME}
       DNS: ${DNS}
       PORT: ${PORT}
-    depends_on:
-      - mongodb
+#    depends_on:
+#      - mongodb
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=web"
@@ -27,19 +29,19 @@ services:
       - web
       - internal
 
-  mongodb:
-    container_name: ${NAME}-mongodb
-    image: mongo:latest
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
-      MONGO_INITDB_DATABASE: dataspace-connector
-    restart: unless-stopped
-    volumes:
-      - ./data:/data/db
-      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
-    networks:
-      - internal
+#  mongodb:
+#    container_name: ${NAME}-mongodb
+#    image: mongo:latest
+#    environment:
+#      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+#      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+#      MONGO_INITDB_DATABASE: dataspace-connector
+#    restart: unless-stopped
+#    volumes:
+#      - ./data:/data/db
+#      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+#    networks:
+#      - internal
 
   pdc-dashboard:
     image: dataspace-connector-dashboard:latest

@@ -14,8 +14,8 @@ services:
       NAME: ${NAME}
       DNS: ${DNS}
       PORT: ${PORT}
-    depends_on:
-      - mongodb
+#    depends_on:
+#      - mongodb
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=web"
@@ -29,36 +29,36 @@ services:
       - web
       - internal
 
-  mongodb:
-    build:
-      context: .
-      dockerfile: docker/mongodb/Dockerfile
-    restart: unless-stopped
-    volumes:
-      - ./data:/data/db
-    networks:
-      - internal
+#  mongodb:
+#    build:
+#      context: .
+#      dockerfile: docker/mongodb/Dockerfile
+#    restart: unless-stopped
+#    volumes:
+#      - ./data:/data/db
+#    networks:
+#      - internal
 
-  pdc-dashboard:
-    build:
-      context: ./dashboard
-      dockerfile: Dockerfile
-    restart: unless-stopped
-    labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=web"
-
-      - "traefik.http.routers.${NAME}-dashboard.rule=Host(`${DNS}`) && PathPrefix(`/dashboard`)"
-      - "traefik.http.routers.${NAME}-dashboard.entrypoints=websecure"
-      - "traefik.http.routers.${NAME}-dashboard.tls.certresolver=letsEncrypt"
-
-      - "traefik.http.middlewares.${NAME}-dashboard-strip.stripprefix.prefixes=/dashboard"
-      - "traefik.http.routers.${NAME}-dashboard.middlewares=${NAME}-dashboard-strip"
-
-      - "traefik.http.services.${NAME}-dashboard.loadbalancer.server.port=80"
-    networks:
-      - web
-      - internal
+#  pdc-dashboard:
+#    build:
+#      context: ./dashboard
+#      dockerfile: Dockerfile
+#    restart: unless-stopped
+#    labels:
+#      - "traefik.enable=true"
+#      - "traefik.docker.network=web"
+#
+#      - "traefik.http.routers.${NAME}-dashboard.rule=Host(`${DNS}`) && PathPrefix(`/dashboard`)"
+#      - "traefik.http.routers.${NAME}-dashboard.entrypoints=websecure"
+#      - "traefik.http.routers.${NAME}-dashboard.tls.certresolver=letsEncrypt"
+#
+#      - "traefik.http.middlewares.${NAME}-dashboard-strip.stripprefix.prefixes=/dashboard"
+#      - "traefik.http.routers.${NAME}-dashboard.middlewares=${NAME}-dashboard-strip"
+#
+#      - "traefik.http.services.${NAME}-dashboard.loadbalancer.server.port=80"
+#    networks:
+#      - web
+#      - internal
 
 networks:
   web:
