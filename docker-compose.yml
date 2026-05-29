@@ -3,6 +3,8 @@ services:
     build:
       context: .
       dockerfile: docker/app/Dockerfile
+      args:
+        ENV: ${NODE_ENV}
     container_name: ${NAME}-dataspace-connector
     restart: unless-stopped
     tty: true
