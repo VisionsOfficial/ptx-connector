@@ -14,6 +14,7 @@ import amqp from 'amqplib';
 
 interface IData {
     serviceOffering?: string;
+    skipBodyProcessing?: boolean;
     resource: string;
     params?: IParams;
     completed: boolean;
@@ -67,6 +68,8 @@ interface IDataExchange {
         code?: number;
         location?: string;
     };
+    ecosystemName?: string;
+    offerName?: string;
     payload?: string;
     providerData?: {
         checksum: string;
@@ -127,6 +130,7 @@ interface IDataExchangeMethods {
 const dataSchema = new Schema(
     {
         serviceOffering: String,
+        skipBodyProcessing: Boolean,
         resource: String,
         params: paramsSchema,
     },
@@ -172,6 +176,8 @@ const schema = new Schema({
         code: Number,
         location: String,
     },
+    ecosystemName: String,
+    offerName: String,
     consentId: String,
     providerParams: {
         query: [{ type: Schema.Types.Mixed, required: true }],

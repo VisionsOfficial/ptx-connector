@@ -120,9 +120,11 @@ export const postRepresentation = async (params: {
         }
     }
 
+    let useData = await getProcessedData(data, dataExchange, resource);
+
     switch (method) {
         case 'none':
-            return await axios.post(url, data, {
+            return await axios.post(url, useData, {
                 headers: headers,
                 ...(axiosProxy.host && axiosProxy.port
                     ? {
@@ -148,7 +150,7 @@ export const postRepresentation = async (params: {
             return await axios.post(
                 url,
                 {
-                    ...data,
+                    ...useData,
                     username: cred.key,
                     password: cred.value,
                 },
@@ -176,7 +178,7 @@ export const postRepresentation = async (params: {
                 }
             );
         case 'apiKey':
-            return await axios.post(url, data, {
+            return await axios.post(url, useData, {
                 headers: {
                     [cred.key]: cred.value,
                     ...headers,
@@ -858,7 +860,7 @@ const headerProcessing = (params: {
             'x-ptx-contractId': dataExchange.contract.split('/').pop(),
             'x-ptx-contractURL': dataExchange.contract,
             'content-type':
-                dataExchange.providerData.mimetype || 'application/json',
+                dataExchange?.providerData?.mimetype || 'application/json',
         };
     }
 
@@ -899,6 +901,34 @@ const proxyProcessing = async (proxy: IProxyRepresentation) => {
     return axiosProxy;
 };
 
+/**
+ * Process the data based on skipBodyProcessing flag in dataExchange
+ * @param data
+ * @param dataExchange
+ * @param resource
+ */
+const getProcessedData = async (data: any, dataExchange?: IDataExchange, resource?: any) => {
+    if (dataExchange && resource) {
+        const arraysToCheck = [
+            dataExchange.purposes,
+            dataExchange.resources,
+            dataExchange.serviceChainParams,
+        ];
+        for (const arr of arraysToCheck) {
+            if (Array.isArray(arr)) {
+                const found = arr.find(
+                    (item: any) =>
+                        item.resource === resource &&
+                        item.skipBodyProcessing === true
+                );
+                if (found) {
+                    return data.data;
+                }
+            }
+        }
+    }
+    return data;
+}
 /**
  * Build S3 Request Handler from Proxy information
  * @param axiosProxy
