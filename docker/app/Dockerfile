@@ -1,7 +1,7 @@
 # Use the official Node.js image as base image
-FROM node:lts
+FROM node:22
 ARG ENV
-ENV ENV $ENV
+ENV ENV=$ENV
 
 # Install pnpm globally
 RUN npm install -g pnpm@9
@@ -24,7 +24,7 @@ RUN mkdir -p /src/logs
 RUN mkdir -p /src/keys
 
 # Install app dependencies
-RUN CI=true pnpm i
+RUN pnpm install --frozen-lockfile --ignore-scripts
 
 # Expose the port on which the app will run
 EXPOSE 3000
