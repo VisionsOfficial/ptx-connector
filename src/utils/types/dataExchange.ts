@@ -25,18 +25,22 @@ export interface IParams {
 export interface IService {
     participant: string;
     service: string;
+    connector: string;
     configuration: string;
     params: any;
     completed?: boolean;
 }
 
 export interface IServiceChain {
-    catalogId: string;
+    catalogId?: string;
+    serviceChainId: string;
     services: IService[];
 }
 
 interface IDataExchange {
     _id: ObjectId;
+    exchangeIdentifier: string;
+    exchangeKey: string;
     providerEndpoint: string;
     resources: [IData];
     purposes: [IData];
@@ -54,6 +58,9 @@ interface IDataExchange {
         message: string;
         code?: number;
         location?: string;
+        host?: string;
+        connector?: string;
+        responseData?: unknown;
     };
     payload?: string;
     providerData?: {
@@ -67,9 +74,7 @@ interface IDataExchange {
     serviceChainParams?: [IData];
 
     // Define method signatures
-    createDataExchangeToOtherParticipant(
-        participant: 'provider' | 'consumer'
-    ): Promise<void>;
+    createDataExchangeToOtherParticipant(): Promise<void>;
     syncWithParticipant(): Promise<void>;
     updateStatus(
         status: string,
@@ -101,10 +106,8 @@ export type DataExchangeResult = {
 } | null;
 
 interface IDataExchangeMethods {
-    createDataExchangeToOtherParticipant(
-        participant: 'provider' | 'consumer'
-    ): Promise<void>;
-    syncWithParticipant(): Promise<void>;
+    createDataExchangeToOtherParticipant(): Promise<void>;
+    syncWithParticipant(endpoint: string): Promise<void>;
     updateStatus(status: string, payload?: any): Promise<IDataExchangeModel>;
 }
 
@@ -122,6 +125,8 @@ const dataSchema = new Schema(
 
 const schema = new Schema({
     resources: [dataSchema],
+    exchangeIdentifier: String,
+    exchangeKey: String,
     purposes: [dataSchema],
     purposeId: String,
     contract: String,
@@ -140,8 +145,11 @@ const schema = new Schema({
     payload: String,
     error: {
         message: String,
-        code: Number,
+        code: { type: Schema.Types.Mixed },
         location: String,
+        host: String,
+        connector: String,
+        stack: { type: Schema.Types.Mixed },
     },
     consentId: String,
     providerParams: {
@@ -153,10 +161,12 @@ const schema = new Schema({
     serviceChainParams: [dataSchema],
     serviceChain: {
         catalogId: String,
+        serviceChainId: String,
         services: [
             {
                 participant: String,
                 service: String,
+                connector: String,
                 configuration: String,
                 params: { type: Schema.Types.Mixed },
                 pre: [{ type: Schema.Types.Mixed }],
@@ -168,163 +178,198 @@ const schema = new Schema({
 
 /**
  * Create the data exchange to the other participant PDC
- * @param participant The participant
  */
-schema.methods.createDataExchangeToOtherParticipant = async function (
-    participant: 'provider' | 'consumer'
-) {
-    let data;
-    if (participant === 'provider') {
-        data = {
-            consumerEndpoint: await getEndpoint(),
-            resources: this.resources,
-            purposes: this.purposes,
-            purposeId: this.purposeId,
-            contract: this.contract,
-            status: this.status,
-            consentId: this.consentId,
-            providerParams: this.providerParams,
-            consumerParams: this.consumerParams,
-            serviceChainParams: this.serviceChainParams,
-            consumerDataExchange: this._id,
-            serviceChain: this.serviceChain,
-            providerData: this.providerData,
-        };
-    } else {
-        data = {
-            providerEndpoint: await getEndpoint(),
-            resources: this.resources,
-            purposes: this.purposes,
-            purposeId: this.purposeId,
-            contract: this.contract,
-            status: this.status,
-            consentId: this.consentId,
-            providerParams: this.providerParams,
-            consumerParams: this.consumerParams,
-            serviceChainParams: this.serviceChainParams,
-            providerDataExchange: this._id,
-            serviceChain: this.serviceChain,
-            providerData: this.providerData,
-        };
-    }
-    const response = await axios.post(
-        urlChecker(
-            participant === 'provider'
-                ? this.providerEndpoint
-                : this.consumerEndpoint,
-            'dataexchanges'
-        ),
-        data
-    );
+schema.methods.createDataExchangeToOtherParticipant = async function () {
+    if(this.providerEndpoint !== this.consumerEndpoint){
+        const endpoint = this.providerEndpoint === (await getEndpoint())
+            ? this.consumerEndpoint
+            : this.providerEndpoint;
 
-    if (participant === 'provider') {
-        this.providerDataExchange = response.data.content._id;
-    } else {
-        this.consumerDataExchange = response.data.content._id;
+        const data = { ...this._doc };
+        delete data._id;
+
+        const response = await axios.post(
+            urlChecker(
+                endpoint,
+                'dataexchanges'
+            ),
+            data
+        );
+
+        if (endpoint === this.consumerDataExchange) {
+            this.providerDataExchange = response.data.content._id;
+            this.consumerDataExchange = this._id;
+        } else {
+            this.consumerDataExchange = response.data.content._id;
+            this.providerDataExchange = this._id;
+        }
+        await this.save();
     }
-    this.save();
 };
 
 /**
  * Sync the data exchange with the participant
  */
-schema.methods.syncWithParticipant = async function () {
-    let data;
-    if (this.consumerDataExchange && this.providerDataExchange) return;
+schema.methods.syncWithParticipant = async function (endpoint: string) {
+    const data = { ...this._doc };
+    delete data._id;
 
-    if (this.consumerEndpoint && this.consumerDataExchange) {
-        data = {
-            providerDataExchange: this._id,
-        };
-    } else {
-        data = {
-            consumerDataExchange: this._id,
-        };
-    }
+    console.log(`Syncing data exchange ${this.exchangeIdentifier} with participant at ${endpoint}`);
+
     await axios.put(
         urlChecker(
-            this.consumerEndpoint ?? this.providerEndpoint,
-            `dataexchanges/${
-                this.consumerDataExchange ?? this.providerDataExchange
-            }`
+            endpoint,
+            `private/dataexchanges/exchangeidentifier/${this.exchangeIdentifier}`
         ),
-        data
+        data,
+        {
+            headers: {
+                'ptx-data-exchange-key': this.exchangeKey,
+            },
+        }
     );
 };
 
 /**
  * Sync the data exchange with the infrastructure
  * @param infrastructureEndpoint The infrastructure endpoint, if not provided, the participant endpoint will be requested
+ * @param service
  */
 schema.methods.syncWithInfrastructure = async function (
-    infrastructureEndpoint?: string
+    infrastructureEndpoint?: string,
+    service?: string
 ) {
-    if (!this.providerDataExchange) this.providerDataExchange = this._id;
-    if (!this.consumerDataExchange) this.consumerDataExchange = this._id;
-    if (!this.providerEndpoint) this.providerEndpoint = await getEndpoint();
 
-    const [response] = await handle(
-        axios.post(urlChecker(infrastructureEndpoint, 'dataexchanges'), {
-            providerParams: this.providerParams,
-            serviceChain: this.serviceChain,
-            consumerParams: this.consumerParams,
-            serviceChainParams: this.serviceChainParams,
-            resources: this.resources,
-            purposes: this.purposes,
-            purposeId: this.purposeId,
-            contract: this.contract,
-            consumerEndpoint: this.consumerEndpoint,
-            status: this.status,
-            consentId: this.consentId,
-            consumerDataExchange: this.consumerDataExchange,
-            providerDataExchange: this.providerDataExchange,
-            providerEndpoint: this.providerEndpoint,
-            providerData: this.providerData,
-        })
-    );
-
-    if (response.content._id) {
-        return response.content;
-    } else {
-        throw new Error('Failed to sync with infrastructure');
+    if (!this.serviceChain.services[0].connector) {
+        this.serviceChain.services[0].connector = this.providerEndpoint;
     }
+
+    if (
+        !this.serviceChain.services[this.serviceChain.services.length - 1]
+            .connector
+    ) {
+        this.serviceChain.services[
+            this.serviceChain.services.length - 1
+        ].connector = this.consumerEndpoint;
+    }
+
+    if (service && infrastructureEndpoint && this.serviceChain.serviceChainId) {
+        const index = this.serviceChain.services.findIndex(
+            (element: { service: string }) => element.service === service
+        );
+
+        if (index) {
+            this.serviceChain.services[index].connector =
+                infrastructureEndpoint;
+        } else {
+            if (
+                this.serviceChain.services[index].pre &&
+                this.serviceChain.services[index].pre.length > 0
+            ) {
+                for (const preChain of this.serviceChain.services[index].pre) {
+                    const preIndex = preChain.services.findIndex(
+                        (element: { service: string }) =>
+                            element.service === service
+                    );
+
+                    if (preIndex) {
+                        preChain.services[preIndex].connector =
+                            infrastructureEndpoint;
+                    }
+                }
+            }
+        }
+
+        await this.save();
+
+        console.log(`Syncing data exchange ${this.exchangeIdentifier} with infrastructure at ${infrastructureEndpoint} for service ${service}`);
+
+        const [response] = await handle(
+            axios.post(urlChecker(infrastructureEndpoint, 'dataexchanges'), {
+                exchangeIdentifier: this.exchangeIdentifier,
+                exchangeKey: this.exchangeKey,
+                providerParams: this.providerParams,
+                serviceChain: this.serviceChain,
+                consumerParams: this.consumerParams,
+                serviceChainParams: this.serviceChainParams,
+                resources: this.resources,
+                purposes: this.purposes,
+                purposeId: this.purposeId,
+                contract: this.contract,
+                consumerEndpoint: this.consumerEndpoint,
+                status: this.status,
+                consentId: this.consentId,
+                consumerDataExchange: this.consumerDataExchange,
+                providerDataExchange: this.providerDataExchange,
+                providerEndpoint: this.providerEndpoint,
+                providerData: this.providerData,
+            })
+        );
+
+        if (response.content._id) {
+            try{
+                await this.syncWithParticipant(
+                    this.consumerEndpoint !== (await getEndpoint())
+                        ? this.consumerEndpoint
+                        : this.providerEndpoint
+                );
+            } catch(error) {
+                console.error(`Failed to sync with participant after syncing with infrastructure: ${error.message}`);
+            }
+
+            return response.content;
+        } else {
+            throw new Error('Failed to sync with infrastructure');
+        }
+    }
+
+
+
 };
 
 /**
  * Update the status of the data exchange
  * @param status The status
- * @param payload The payload
+ * @param payload The payload or an ExchangeError instance
  * @param location location of the error
  */
 schema.methods.updateStatus = async function (
     status: string,
     payload?: any,
-    location?: string
+    location?: string,
 ) {
     this.status = status;
     if (payload) {
         this.payload = payload;
         this.error = {
             message:
-                typeof payload === 'string' ? payload : JSON.stringify(payload),
+                typeof payload === 'string' ? payload : payload?.message ? payload.message : JSON.stringify(payload),
             location: location,
+            host: payload?.host,
+            connector: await getEndpoint(),
+            code: payload?.code,
+            stack: payload?.stack,
         };
     }
+    await this.save();
 
-    await axios.put(
-        urlChecker(
-            this?.consumerEndpoint ?? this?.providerEndpoint,
-            `dataexchanges/${
-                this?.consumerDataExchange ?? this?.providerDataExchange
-            }`
-        ),
-        {
-            status,
-            payload,
-            error: this.error,
+    if (this.serviceChain?.serviceChainId) {
+        for (const service of this.serviceChain?.services ?? []) {
+            if (service?.connector && service.connector !== (await getEndpoint())) {
+                await this.syncWithParticipant(service.connector);
+            }
         }
-    );
-    return this.save();
+    } else {
+        const endpoint = this?.providerEndpoint !== (await getEndpoint())
+            ? this?.providerEndpoint
+            : this?.consumerEndpoint;
+
+        if (endpoint) {
+            await this.syncWithParticipant(endpoint);
+        }
+    }
+
+    return this;
 };
 
 /**
@@ -344,7 +389,7 @@ schema.methods.updateProviderData = async function (payload: {
         urlChecker(
             this?.consumerEndpoint ?? this?.providerEndpoint,
             `dataexchanges/${
-                this?.consumerDataExchange ?? this?.providerDataExchange
+                this?.exchangeIdentifier
             }`
         ),
         {
@@ -368,41 +413,25 @@ schema.methods.completeServiceChain = async function (service: string) {
     } else {
         this.serviceChain.services[indexToUpdate].completed = true;
 
-        if (this.consumerEndpoint && this.consumerDataExchange) {
-            await axios.put(
-                urlChecker(
-                    this?.consumerEndpoint,
-                    `dataexchanges/${this?.consumerDataExchange}/servicechains/${indexToUpdate}`
-                ),
-                {
-                    serviceChain: this.serviceChain,
+        await this.save();
+
+        if (this.serviceChain.serviceChainId) {
+            for (const service of this.serviceChain.services) {
+                if (service.connector !== (await getEndpoint())) {
+                    await this.syncWithParticipant(service.connector);
                 }
+            }
+        } else {
+            await this.syncWithParticipant(
+                this?.consumerEndpoint ?? this?.providerEndpoint
             );
-        }
-
-        if (this.providerEndpoint && this.providerDataExchange) {
-            await axios.put(
-                urlChecker(
-                    this?.providerEndpoint,
-                    `dataexchanges/${this?.providerDataExchange}/servicechains/${indexToUpdate}`
-                ),
-                {
-                    serviceChain: this.serviceChain,
-                }
-            );
-        }
-
-        const dataExchange = await DataExchange.findById(this._id);
-
-        if (dataExchange) {
-            dataExchange.serviceChain.services[indexToUpdate].completed = true;
-
-            return dataExchange.save();
         }
     }
 };
 
 type IDataExchangeModel = Document & IDataExchange & IDataExchangeMethods;
+
+schema.set('versionKey', false);
 
 const DataExchange = connection.model<IDataExchangeModel>(
     'dataexchange',

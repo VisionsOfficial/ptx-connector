@@ -1,5 +1,6 @@
 export type Service = {
     participant: string;
+    connector?: string;
     service: string;
     configuration: string;
     params: {
@@ -10,6 +11,7 @@ export type Service = {
 };
 
 export type ContractServiceChain = {
-    catalogId: string;
+    catalogId?: string;
+    serviceChainId: string;
     services: Service[];
 };

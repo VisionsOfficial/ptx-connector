@@ -40,6 +40,10 @@ type CallbackMeta = PipelineMeta & {
     };
 };
 
+/**
+ * Callback used by the dpcp-library
+ * @param props
+ */
 export const nodeCallbackService = async (props: {
     targetId: string;
     data: any;
@@ -62,23 +66,9 @@ export const nodeCallbackService = async (props: {
     let decryptedConsent: IDecryptedConsent;
 
     const dataExchange = await DataExchange.findOne({
-        $or: [
-            {
-                consumerDataExchange: (meta as CallbackMeta).configuration
-                    .dataExchange,
-            },
-            {
-                providerDataExchange: (meta as CallbackMeta).configuration
-                    .dataExchange,
-            },
-            {
-                _id: new ObjectId(
-                    (meta as CallbackMeta).configuration.dataExchange
-                ),
-            },
-            { _id: (meta as CallbackMeta).configuration.dataExchange },
-        ],
+        exchangeIdentifier: (meta as CallbackMeta).configuration.dataExchange,
     });
+
     dataExchange.DVCTPassed = false;
 
     if (!dataExchange) {
@@ -301,9 +291,15 @@ export const nodeCallbackService = async (props: {
                     throw new Error(error.message);
                 }
             }
-            await dataExchange.save();
+            if (dataExchange.consumerEndpoint !== (await getEndpoint())) {
+                await dataExchange.completeServiceChain(targetId);
+            } else {
+                await dataExchange.completeServiceChain(targetId);
 
-            await dataExchange.completeServiceChain(targetId);
+                await dataExchange.updateStatus(
+                    DataExchangeStatusEnum.IMPORT_SUCCESS);
+            }
+
             return {
                 ...output,
             };
@@ -311,13 +307,14 @@ export const nodeCallbackService = async (props: {
             await dataExchange?.updateStatus(
                 DataExchangeStatusEnum.PEP_ERROR,
                 "The policies can't be verified",
-                await getEndpoint()
+                "nodeCallbackService"
             );
         }
     } catch (e) {
         await dataExchange?.updateStatus(
             DataExchangeStatusEnum.NODE_CALLBACK_ERROR,
-            e.message
+            e,
+            "nodeCallbackService"
         );
         Logger.error({
             message: e.message,
@@ -326,6 +323,10 @@ export const nodeCallbackService = async (props: {
     }
 };
 
+/**
+ * Callback used in case of pre chain
+ * @param props
+ */
 export const nodePreCallbackService = async (props: {
     targetId?: string;
     data?: any;
@@ -346,22 +347,7 @@ export const nodePreCallbackService = async (props: {
     } = props;
 
     const dataExchange = await DataExchange.findOne({
-        $or: [
-            {
-                consumerDataExchange: (meta as CallbackMeta).configuration
-                    .dataExchange,
-            },
-            {
-                providerDataExchange: (meta as CallbackMeta).configuration
-                    .dataExchange,
-            },
-            {
-                _id: new ObjectId(
-                    (meta as CallbackMeta).configuration.dataExchange
-                ),
-            },
-            { _id: (meta as CallbackMeta).configuration.dataExchange },
-        ],
+        exchangeIdentifier: (meta as CallbackMeta).configuration.dataExchange,
     });
 
     if (!dataExchange) {
@@ -446,6 +432,7 @@ export const nodePreCallbackService = async (props: {
                 }
             }
 
+            // TODO for post
             // // softwareResource = default POST data, use conf if exists and check for is API
             // if (offer.softwareResources && offer.softwareResources.length > 0) {
             //     for (const softwareResource of offer.softwareResources) {

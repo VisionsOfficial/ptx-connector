@@ -8,16 +8,15 @@ import {
     IServiceChain,
     IParams,
 } from '../../../utils/types/dataExchange';
-import { getEndpoint } from '../../../libs/loaders/configuration';
 import { getCatalogData } from '../../../libs/third-party/catalog';
 import { ExchangeError } from '../../../libs/errors/exchangeError';
 import { getContract } from '../../../libs/third-party/contract';
-import { ObjectId } from 'mongodb';
 import { DataExchangeStatusEnum } from '../../../utils/enums/dataExchangeStatusEnum';
 import { postRepresentation } from '../../../libs/loaders/representationFetcher';
 import { providerImport } from '../../../libs/third-party/provider';
 import { getCredentialByIdService } from '../../private/v1/credential.private.service';
 import postgres from 'postgres';
+import { randomUUID } from 'node:crypto';
 
 export const triggerBilateralFlow = async (props: {
     contract: string;
@@ -45,6 +44,10 @@ export const triggerBilateralFlow = async (props: {
     // get Provider endpoint
     const [providerResponse] = await handle(
         axios.get(contractResponse.dataProvider)
+    );
+
+    const [consumerResponse] = await handle(
+        axios.get(contractResponse.dataConsumer)
     );
 
     const [resourceResponse] = await handle(
@@ -86,38 +89,22 @@ export const triggerBilateralFlow = async (props: {
 
     let dataExchange: IDataExchange;
 
-    if (providerResponse?.dataspaceEndpoint !== (await getEndpoint())) {
-        dataExchange = await DataExchange.create({
-            providerEndpoint: providerResponse?.dataspaceEndpoint,
-            resources: mappedDataResources,
-            purposes: mappedSoftwareResources,
-            purposeId: contractResponse.purpose[0].purpose,
-            contract: props.contract,
-            status: 'PENDING',
-            providerParams: providerParams ?? [],
-            consumerParams: consumerParams ?? [],
-            createdAt: new Date(),
-        });
-        // Create the data exchange at the provider
-        await dataExchange.createDataExchangeToOtherParticipant('provider');
-    } else {
-        const [consumerResponse] = await handle(
-            axios.get(contractResponse.dataConsumer)
-        );
-        dataExchange = await DataExchange.create({
-            consumerEndpoint: consumerResponse?.dataspaceEndpoint,
-            resources: mappedDataResources,
-            purposes: mappedSoftwareResources,
-            purposeId: contractResponse.purpose[0].purpose,
-            contract: props.contract,
-            status: 'PENDING',
-            providerParams: providerParams ?? [],
-            consumerParams: consumerParams ?? [],
-            createdAt: new Date(),
-        });
-        // Create the data exchange at the provider
-        await dataExchange.createDataExchangeToOtherParticipant('consumer');
-    }
+    dataExchange = await DataExchange.create({
+        exchangeIdentifier: `${randomUUID().slice(0, 8)}-${Date.now()}`,
+        exchangeKey: randomUUID(),
+        providerEndpoint: providerResponse?.dataspaceEndpoint,
+        consumerEndpoint: consumerResponse?.dataspaceEndpoint,
+        resources: mappedDataResources,
+        purposes: mappedSoftwareResources,
+        purposeId: contractResponse.purpose[0].purpose,
+        contract: props.contract,
+        status: 'PENDING',
+        providerParams: providerParams ?? [],
+        consumerParams: consumerParams ?? [],
+        createdAt: new Date(),
+    });
+    // Create the data exchange at the provider
+    await dataExchange.createDataExchangeToOtherParticipant();
 
     return {
         dataExchange,
@@ -256,74 +243,24 @@ export const triggerEcosystemFlow = async (props: {
 
     //case participant is provider and consumer
     //add all field to allow chain usage
-    if (
-        consumerSelfDescriptionResponse?.dataspaceEndpoint ===
-            (await getEndpoint()) &&
-        providerSelfDescriptionResponse?.dataspaceEndpoint ===
-            (await getEndpoint())
-    ) {
-        const id = new ObjectId();
-        dataExchange = await DataExchange.create({
-            _id: id,
-            consumerDataExchange: id,
-            providerDataExchange: id,
-            consumerEndpoint:
-                consumerSelfDescriptionResponse?.dataspaceEndpoint,
-            providerEndpoint:
-                providerSelfDescriptionResponse?.dataspaceEndpoint,
-            resources: mappedDataResources,
-            purposes: mappedSoftwareResources,
-            purposeId: purposeId,
-            contract: contract,
-            status: 'PENDING',
-            providerParams: providerParams ?? [],
-            consumerParams: consumerParams ?? [],
-            serviceChainParams: serviceChainParams ?? [],
-            createdAt: new Date(),
-            serviceChain: serviceChain ?? [],
-        });
-    } else if (
-        consumerSelfDescriptionResponse?.dataspaceEndpoint ===
-        (await getEndpoint())
-    ) {
-        //search consumerEndpoint
-        dataExchange = await DataExchange.create({
-            providerEndpoint:
-                providerSelfDescriptionResponse?.dataspaceEndpoint,
-            resources: mappedDataResources,
-            purposes: mappedSoftwareResources,
-            purposeId: purposeId,
-            contract: contract,
-            status: 'PENDING',
-            providerParams: providerParams ?? [],
-            consumerParams: consumerParams ?? [],
-            serviceChainParams: serviceChainParams ?? [],
-            createdAt: new Date(),
-            serviceChain: serviceChain ?? [],
-        });
-        await dataExchange.createDataExchangeToOtherParticipant('provider');
-    } else if (
-        providerSelfDescriptionResponse?.dataspaceEndpoint ===
-        (await getEndpoint())
-    ) {
-        dataExchange = await DataExchange.create({
-            consumerEndpoint:
-                consumerSelfDescriptionResponse?.dataspaceEndpoint,
-            resources: mappedDataResources,
-            purposes: mappedSoftwareResources,
-            purposeId: purposeId,
-            contract: contract,
-            status: 'PENDING',
-            providerParams: providerParams ?? [],
-            consumerParams: consumerParams ?? [],
-            serviceChainParams: serviceChainParams ?? [],
-            createdAt: new Date(),
-            serviceChain: serviceChain ?? [],
-        });
-
-        // Create the data exchange at the provider
-        await dataExchange.createDataExchangeToOtherParticipant('consumer');
-    }
+    dataExchange = await DataExchange.create({
+        exchangeIdentifier: `${randomUUID().slice(0, 8)}-${Date.now()}`,
+        exchangeKey: randomUUID(),
+        consumerEndpoint:
+        consumerSelfDescriptionResponse?.dataspaceEndpoint,
+        providerEndpoint:
+        providerSelfDescriptionResponse?.dataspaceEndpoint,
+        resources: mappedDataResources,
+        purposes: mappedSoftwareResources,
+        purposeId: purposeId,
+        contract: contract,
+        status: 'PENDING',
+        providerParams: providerParams ?? [],
+        consumerParams: consumerParams ?? [],
+        serviceChainParams: serviceChainParams ?? [],
+        createdAt: new Date(),
+        serviceChain: serviceChain ?? [],
+    });
 
     return {
         dataExchange,
@@ -413,7 +350,7 @@ const verifyDataProcessingInContract = (
     }
 
     const serviceChain = serviceChains?.find(
-        (element) => element.catalogId === id
+        (element) => element.serviceChainId === id
     );
 
     if (!serviceChain) {
@@ -461,15 +398,15 @@ const verifyPII = async (
 };
 
 export const consumerImportService = async (props: {
-    providerDataExchange: string;
+    exchangeIdentifier: string;
     data: any;
     apiResponseRepresentation: any;
 }) => {
-    const { providerDataExchange, data, apiResponseRepresentation } = props;
+    const { exchangeIdentifier, data, apiResponseRepresentation } = props;
 
     //Get dataExchange
     const dataExchange = await DataExchange.findOne({
-        providerDataExchange: providerDataExchange,
+        exchangeIdentifier: exchangeIdentifier,
     });
 
     for (const purpose of dataExchange.purposes) {
@@ -486,12 +423,14 @@ export const consumerImportService = async (props: {
 
                 if (!endpoint) {
                     await dataExchange?.updateStatus(
-                        DataExchangeStatusEnum.CONSUMER_IMPORT_ERROR
+                        DataExchangeStatusEnum.CONSUMER_IMPORT_ERROR,
+                        'Endpoint missing',
+                        "consumerImportService > endpoint missing"
                     );
                     break;
                 }
 
-                const [postConsumerData] = await handle(
+                const [postConsumerData, responseError] = await handle(
                     postRepresentation({
                         resource: purpose.resource,
                         method: catalogSoftwareResource?.representation?.method,
@@ -553,9 +492,9 @@ export const consumerImportService = async (props: {
                         location: 'ProviderExportService',
                     });
                     await dataExchange?.updateStatus(
-                        DataExchangeStatusEnum.PROVIDER_EXPORT_ERROR,
-                        e.message,
-                        await getEndpoint()
+                        DataExchangeStatusEnum.CONSUMER_IMPORT_ERROR,
+                        e,
+                        "consumerImportService > POSTGRESQL"
                     );
 
                     throw e;
@@ -571,8 +510,8 @@ export const consumerImportService = async (props: {
                 {
                     await dataExchange.updateStatus(
                         DataExchangeStatusEnum.CONSUMER_IMPORT_ERROR,
-                        'Representation type not supported'
-                    );
+                        'Representation type not supported',
+                        "consumerImportService");
                 }
 
                 break;
@@ -584,7 +523,8 @@ export const consumerImportService = async (props: {
                     providerImport(
                         dataExchange.providerEndpoint,
                         consumerResponse,
-                        dataExchange._id.toString()
+                        dataExchange._id.toString(),
+                        dataExchange.exchangeIdentifier
                     )
                 );
             }

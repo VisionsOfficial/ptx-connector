@@ -43,7 +43,7 @@ const r: Router = Router();
 r.post(
     '/export',
     [
-        body('dataExchange').isObject(),
+        body('exchangeIdentifier').isString(),
         body('consumerEndpoint').isString(),
         body('contract').isString(),
     ],
@@ -76,7 +76,7 @@ r.post(
  */
 r.post(
     '/import',
-    [body('dataExchange').isObject(), body('data').isObject()],
+    [body('exchangeIdentifier').isString(), body('data').isObject()],
     providerImport
 );
 

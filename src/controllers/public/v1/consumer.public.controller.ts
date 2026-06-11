@@ -104,12 +104,11 @@ export const consumerExchange = async (
 
                 // Sync the data exchange with the infrastructure
                 if (
-                    participantEndpoint !== (await getEndpoint()) &&
-                    participantEndpoint !== dataExchange?.consumerEndpoint &&
-                    participantEndpoint !== dataExchange?.providerEndpoint
+                    participantEndpoint !== (await getEndpoint())
                 )
                     await dataExchange.syncWithInfrastructure(
-                        participantEndpoint
+                        participantEndpoint,
+                        service.service
                     );
 
                 if (service.pre && service.pre.length > 0) {
@@ -130,38 +129,31 @@ export const consumerExchange = async (
                             ) {
                                 // Sync the data exchange with the infrastructure
                                 await dataExchange.syncWithInfrastructure(
-                                    participantEndpoint
+                                    participantEndpoint,
+                                    element.service
                                 );
                             }
                         }
                     }
                 }
             }
+        } else {
+            // Create the data exchange at the provider
+            await dataExchange.createDataExchangeToOtherParticipant();
         }
 
         //Trigger provider.ts endpoint exchange
-        if (dataExchange.consumerEndpoint) {
-            const updatedDataExchange = await DataExchange.findById(
-                dataExchange._id
-            );
+        if (dataExchange.providerEndpoint === (await getEndpoint())) {
+            const updatedDataExchange = await DataExchange.findOne({
+                exchangeIdentifier: dataExchange.exchangeIdentifier
+            });
 
             await ProviderExportService(
-                updatedDataExchange.consumerDataExchange
+                updatedDataExchange.exchangeIdentifier
             );
         } else {
-            if (providerEndpoint === (await getEndpoint())) {
-                Logger.error({
-                    message: "Can't make request to itself.",
-                    location: 'consumerExchange',
-                });
-                throw new ExchangeError(
-                    "Can't make request to itself.",
-                    'triggerEcosystemFlow',
-                    500
-                );
-            }
             await handle(
-                providerExport(providerEndpoint, dataExchange._id.toString())
+                providerExport(providerEndpoint, dataExchange.exchangeIdentifier)
             );
         }
         const startTime = Date.now();
@@ -176,7 +168,15 @@ export const consumerExchange = async (
         // return code 200 everything is ok
         while (dataExchange.status === 'PENDING') {
             if (Date.now() - startTime > timeout) {
-                message = `${timeoutSeconds} sec Timeout reached.`;
+                message = `${
+                    parseInt(process.env.EXCHANGE_TIMEOUT) || 30
+                } sec Timeout reached.`;
+
+                await dataExchange.updateStatus(
+                    DataExchangeStatusEnum.EXCHANGE_TIMEOUT,
+                    new Error(message),
+                    'consumerExchangeController',
+                );
                 break;
             }
             dataExchange = await DataExchange.findById(dataExchange._id);
@@ -211,11 +211,11 @@ export const consumerImport = async (
     next: NextFunction
 ) => {
     try {
-        let { providerDataExchange, data, apiResponseRepresentation } =
+        let { data, apiResponseRepresentation, exchangeIdentifier } =
             req.body;
 
-        if (!providerDataExchange) {
-            providerDataExchange = req.headers['x-provider-data-exchange'];
+        if (!exchangeIdentifier) {
+            exchangeIdentifier = req.headers['x-provider-data-exchange'];
         }
 
         if (!data) {
@@ -229,13 +229,13 @@ export const consumerImport = async (
 
         if (!req.headers['content-type'].includes('application/json')) {
             await verifyPayloadDefault(
-                { dataExchange: providerDataExchange, data },
+                { exchangeIdentifier, data },
                 req.headers
             );
         }
 
         await consumerImportService({
-            providerDataExchange,
+            exchangeIdentifier,
             data,
             apiResponseRepresentation,
         });
@@ -248,16 +248,13 @@ export const consumerImport = async (
         });
 
         const dataExchange = await DataExchange.findOne({
-            $or: [
-                { _id: new ObjectId(req.body.providerDataExchange) },
-                { _id: req.body.providerDataExchange },
-                { providerDataExchange: req.body.providerDataExchange },
-            ],
+            exchangeIdentifier: req.body.exchangeIdentifier
         });
 
         await dataExchange?.updateStatus(
             DataExchangeStatusEnum.CONSUMER_IMPORT_ERROR,
-            e.message
+            e,
+            'consumerImportController',
         );
 
         return restfulResponse(res, 500, { success: false });

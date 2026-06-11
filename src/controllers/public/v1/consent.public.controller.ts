@@ -13,6 +13,7 @@ import { DataExchange } from '../../../utils/types/dataExchange';
 import { handle } from '../../../libs/loaders/handler';
 import axios from 'axios';
 import { getEndpoint } from '../../../libs/loaders/configuration';
+import { randomUUID } from 'node:crypto';
 
 /**
  * export the consent
@@ -39,6 +40,8 @@ export const exportConsent = async (req: Request, res: Response) => {
         let dataExchange;
         if (decryptedConsent.contract.includes('contracts')) {
             dataExchange = await DataExchange.create({
+                exchangeIdentifier: `${randomUUID().slice(0, 8)}-${Date.now()}`,
+                exchangeKey: randomUUID(),
                 consumerEndpoint:
                     decryptedConsent.dataConsumer.dataspaceEndpoint,
                 resources: decryptedConsent.data,
@@ -51,6 +54,8 @@ export const exportConsent = async (req: Request, res: Response) => {
             });
         } else {
             dataExchange = await DataExchange.create({
+                exchangeIdentifier: `${randomUUID().slice(0, 8)}-${Date.now()}`,
+                exchangeKey: randomUUID(),
                 consumerEndpoint:
                     decryptedConsent.dataConsumer.dataspaceEndpoint,
                 resources: decryptedConsent.data,
@@ -67,10 +72,11 @@ export const exportConsent = async (req: Request, res: Response) => {
             message: 'OK',
             token,
             dataExchangeId: dataExchange._id,
+            exchangeIdentifier: dataExchange.exchangeIdentifier
         });
 
         // Create the data exchange at the provider
-        await dataExchange.createDataExchangeToOtherParticipant('consumer');
+        await dataExchange.createDataExchangeToOtherParticipant();
 
         if (
             dataExchange?.serviceChain &&
@@ -102,7 +108,7 @@ export const exportConsent = async (req: Request, res: Response) => {
         const { _id } = decryptedConsent;
 
         // POST access token to VisionsTrust
-        await postAccessToken(_id, token, dataExchange._id.toString());
+        await postAccessToken(_id, token,  dataExchange.exchangeIdentifier );
     } catch (err) {
         Logger.error({
             message: err.message,

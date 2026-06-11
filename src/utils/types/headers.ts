@@ -11,4 +11,5 @@ export interface Headers {
     'x-ptx-contractId'?: string;
     'x-ptx-contractURL'?: string;
     'content-type'?: string;
+    [key: string]: string | undefined;
 }

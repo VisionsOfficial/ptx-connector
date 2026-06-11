@@ -92,7 +92,7 @@ export interface IDecryptedConsent {
     /**
      * provider data Exchange id
      */
-    providerDataExchangeId: string;
+    exchangeIdentifier: string;
 
     /**
      * consumer data Exchange id

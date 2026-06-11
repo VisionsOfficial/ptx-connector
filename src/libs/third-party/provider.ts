@@ -4,7 +4,7 @@ import * as https from 'node:https';
 
 export const providerExport = async (
     providerEndpoint: string,
-    consumerDataExchange: string,
+    exchangeIdentifier: string,
     infrastructure?: boolean
 ) => {
     const agent = new https.Agent({
@@ -17,7 +17,7 @@ export const providerExport = async (
             `provider/export${infrastructure ? '?infrastructure=true' : ''}`
         ),
         {
-            consumerDataExchange,
+            exchangeIdentifier,
         },
         { httpsAgent: agent }
     );
@@ -26,7 +26,8 @@ export const providerExport = async (
 export const providerImport = async (
     providerEndpoint: string,
     data: any,
-    consumerDataExchange: string
+    consumerDataExchange: string,
+    exchangeIdentifier?: string
 ) => {
     return axios.post(urlChecker(providerEndpoint, 'provider/import'), {
         data,

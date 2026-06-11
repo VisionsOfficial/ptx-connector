@@ -19,12 +19,12 @@ import { getCatalogData } from '../../../libs/third-party/catalog';
 import { consumerImport } from '../../../libs/third-party/consumer';
 
 export const providerExportService = async (
-    consumerDataExchange: string
+    exchangeIdentifier: string
 ): Promise<DataExchangeResult> => {
     try {
         //Get the data exchange
         const dataExchange = await DataExchange.findOne({
-            consumerDataExchange: consumerDataExchange,
+            exchangeIdentifier: exchangeIdentifier,
         });
         if (!dataExchange) {
             return null;
@@ -109,7 +109,8 @@ export const providerExportService = async (
                             return {
                                 exchange: await dataExchange?.updateStatus(
                                     DataExchangeStatusEnum.PROVIDER_EXPORT_ERROR,
-                                    'No data found'
+                                    'No data found',
+                                    "providerExportService"
                                 ),
                                 errorMessage: 'No data found',
                             };
@@ -120,9 +121,10 @@ export const providerExportService = async (
                             const [consumerImportRes] = await handle(
                                 consumerImport(
                                     dataExchange.consumerEndpoint,
-                                    dataExchange._id.toString(),
                                     data,
-                                    endpointData?.apiResponseRepresentation
+                                    endpointData?.apiResponseRepresentation,
+                                    dataExchange.providerData.mimetype,
+                                    dataExchange.exchangeIdentifier
                                 )
                             );
 
@@ -146,7 +148,8 @@ export const providerExportService = async (
                             return {
                                 exchange: await dataExchange?.updateStatus(
                                     DataExchangeStatusEnum.PROVIDER_EXPORT_ERROR,
-                                    e.message
+                                    e,
+                                    "providerExportService"
                                 ),
                                 errorMessage: e.message,
                             };
@@ -162,7 +165,8 @@ export const providerExportService = async (
                 return {
                     exchange: await dataExchange?.updateStatus(
                         DataExchangeStatusEnum.PEP_ERROR,
-                        "The policies can't be verified"
+                        "The policies can't be verified",
+                        "providerExportService"
                     ),
                     errorMessage: 'PEP Error',
                 };
@@ -175,7 +179,8 @@ export const providerExportService = async (
             return {
                 exchange: await dataExchange?.updateStatus(
                     DataExchangeStatusEnum.PROVIDER_EXPORT_ERROR,
-                    e.message
+                    e,
+                    "providerExportService"
                 ),
                 errorMessage: e.message,
             };

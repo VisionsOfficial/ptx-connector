@@ -14,10 +14,10 @@ import { ProviderExportService } from '../../../services/public/v1/provider.publ
  */
 export const providerExport = async (req: Request, res: Response) => {
     try {
-        const { consumerDataExchange } = req.body;
+        const { exchangeIdentifier } = req.body;
 
         restfulResponse(res, 200, {
-            success: await ProviderExportService(consumerDataExchange),
+            success: await ProviderExportService(exchangeIdentifier),
         });
     } catch (e) {
         Logger.error({
@@ -36,10 +36,10 @@ export const providerExport = async (req: Request, res: Response) => {
  */
 export const providerImport = async (req: Request, res: Response) => {
     try {
-        const { data, consumerDataExchange } = req.body;
+        const { data, exchangeIdentifier } = req.body;
 
         const dataExchange = await DataExchange.findOne({
-            consumerDataExchange: consumerDataExchange,
+            exchangeIdentifier: exchangeIdentifier,
         }).lean();
 
         const [catalogServiceOffering] = await handle(

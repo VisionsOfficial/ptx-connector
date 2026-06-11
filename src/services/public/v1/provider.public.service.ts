@@ -26,17 +26,17 @@ interface IProviderExportServiceOptions {
 
 /**
  * Provider Export Service
- * @param consumerDataExchange
+ * @param exchangeIdentifier
  * @param options
  * @constructor
  */
 export const ProviderExportService = async (
-    consumerDataExchange: string,
+    exchangeIdentifier: string,
     options?: IProviderExportServiceOptions
 ) => {
     //Get the data exchange
     const dataExchange = await DataExchange.findOne({
-        consumerDataExchange: consumerDataExchange,
+        exchangeIdentifier,
     });
 
     try {
@@ -209,8 +209,8 @@ export const ProviderExportService = async (
                                     });
                                     await dataExchange?.updateStatus(
                                         DataExchangeStatusEnum.PROVIDER_EXPORT_ERROR,
-                                        e.message,
-                                        await getEndpoint()
+                                        e,
+                                        'ProviderExportService > POSTGRESQL'
                                     );
 
                                     throw e;
@@ -263,19 +263,19 @@ export const ProviderExportService = async (
             await dataExchange?.updateStatus(
                 DataExchangeStatusEnum.PEP_ERROR,
                 "The policies can't be verified",
-                await getEndpoint()
+                'ProviderExportService > PEP failed'
             );
         }
     } catch (e) {
         Logger.error({
             message: e.message,
-            location: e.stack,
+            location: JSON.stringify(e.stack, null, 2),
         });
 
         await dataExchange?.updateStatus(
             DataExchangeStatusEnum.PROVIDER_EXPORT_ERROR,
-            e.message,
-            await getEndpoint()
+            e,
+            'ProviderExportService'
         );
     }
 };
@@ -297,10 +297,10 @@ const triggerGenericFlow = async (props: {
         const [consumerImportRes] = await handle(
             consumerImport(
                 props.dataExchange.consumerEndpoint,
-                props.dataExchange._id.toString(),
                 props.data,
                 props.endpointData?.apiResponseRepresentation,
-                props.dataExchange.providerData.mimetype
+                props.dataExchange.providerData.mimetype,
+                props.dataExchange.exchangeIdentifier
             )
         );
 

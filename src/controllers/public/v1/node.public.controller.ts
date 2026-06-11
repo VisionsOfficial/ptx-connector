@@ -3,9 +3,6 @@ import { Logger } from '../../../libs/loggers';
 import { SupervisorContainer } from '../../../libs/loaders/nodeSupervisor';
 import { getAppKey } from '../../../libs/loaders/configuration';
 import {
-    ChainStatus,
-    NodeSignal,
-    NodeSupervisor,
     PipelineProcessor,
 } from 'dpcp-library/lib';
 import { nodeResumeService } from '../../../services/public/v1/node.public.service';

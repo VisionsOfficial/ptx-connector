@@ -46,7 +46,7 @@ export const importDataService = async ({
             encrypted
         );
         const dataExchange = await DataExchange.findOne({
-            providerDataExchange: decryptedConsent.providerDataExchangeId,
+            exchangeIdentifier: decryptedConsent.exchangeIdentifier,
         });
         try {
             let pepResult: any = { success: true };
@@ -122,7 +122,8 @@ export const importDataService = async ({
                 return {
                     exchange: await dataExchange?.updateStatus(
                         DataExchangeStatusEnum.PEP_ERROR,
-                        "The policies can't be verified"
+                        "The policies can't be verified",
+                        "importDataService"
                     ),
                     errorMessage: 'PEP Error',
                 };
@@ -135,7 +136,8 @@ export const importDataService = async ({
             return {
                 exchange: await dataExchange?.updateStatus(
                     DataExchangeStatusEnum.CONSENT_IMPORT_ERROR,
-                    e.message
+                    e,
+                    "importDataService"
                 ),
                 errorMessage: e.message,
             };
@@ -164,9 +166,9 @@ export const exportDataService = async ({
         );
 
         // Get dataExchange
-        const dataExchange = await DataExchange.findById(
-            decryptedConsent.providerDataExchangeId
-        );
+        const dataExchange = await DataExchange.findOne({
+            exchangeIdentifier: decryptedConsent.exchangeIdentifier
+        });
         try {
             // Send validation verification to VisionsTrust to receive user info and DataTypes
             const validation = await validateConsent(signedConsent, encrypted);
@@ -233,7 +235,8 @@ export const exportDataService = async ({
                     return {
                         exchange: await dataExchange?.updateStatus(
                             DataExchangeStatusEnum.PEP_ERROR,
-                            "The policies can't be verified"
+                            "The policies can't be verified",
+                            "exportDataService"
                         ),
                         errorMessage: 'PEP Error',
                     };
@@ -247,7 +250,8 @@ export const exportDataService = async ({
             return {
                 exchange: await dataExchange?.updateStatus(
                     DataExchangeStatusEnum.CONSENT_EXPORT_ERROR,
-                    e.message
+                    e,
+                    "exportDataService"
                 ),
                 errorMessage: e.message,
             };

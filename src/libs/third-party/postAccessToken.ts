@@ -11,18 +11,18 @@ const TOKEN_MAX_LENGTH = 50;
  * POSTs the access token generated to VisionsTrust
  * @param consentId The consentId obtained from decrypting the signedConsent from the request payload
  * @param token The 50 max characters access token you generate
- * @param providerDataExchangeId
+ * @param exchangeIdentifier
  * @returns The response promiseto the request made to VisionsTrust /consents/exchange/token endpoint
  */
 export const postAccessToken = async (
     consentId: string,
     token: string,
-    providerDataExchangeId: string
+    exchangeIdentifier: string
 ) => {
     if (token.length >= TOKEN_MAX_LENGTH)
         throw new Error('Token too large. Token must be of 50 characters max.');
 
-    return await postAttachToken(consentId, token, providerDataExchangeId);
+    return await postAttachToken(consentId, token, exchangeIdentifier);
 };
 
 /**
@@ -30,20 +30,20 @@ export const postAccessToken = async (
  * You can use this method if you don't care about any other information inside the signedConsent's content.
  * @param signedConsent The signedConsent as per received in the payload of the incoming request
  * @param token The 50 max characters access token you generate
- * @param dataExchangeId
+ * @param exchangeIdentifier
  * @returns The response promise to the request made to VisionsTrust /consents/exchange/token endpoint
  */
 export const postAccessTokenWithSignedConsent = async (
     signedConsent: string,
     token: string,
-    dataExchangeId: string
+    exchangeIdentifier: string
 ) => {
     if (token.length >= TOKEN_MAX_LENGTH)
         throw new Error('Token too large. Token must be of 50 characters max.');
 
     const { _id } = await decryptSignedConsent(signedConsent);
 
-    return await postAttachToken(_id, token, dataExchangeId);
+    return await postAttachToken(_id, token, exchangeIdentifier);
 };
 
 /**
@@ -61,7 +61,7 @@ export const mockConsentExport = async (signedConsent: string) => {
 const postAttachToken = async (
     consentId: string,
     token: string,
-    providerDataExchangeId: string
+    exchangeIdentifier: string
 ) => {
     const { token: authToken } = await generateBearerTokenFromSecret();
 
@@ -70,7 +70,7 @@ const postAttachToken = async (
         url: urlChecker(await getConsentUri(), `consents/${consentId}/token`),
         data: {
             token,
-            providerDataExchangeId,
+            exchangeIdentifier,
         },
         headers: {
             'content-type': 'application/json',

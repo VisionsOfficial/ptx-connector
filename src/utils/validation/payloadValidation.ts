@@ -19,8 +19,8 @@ export const verifyPayloadServiceChain = async (
     reqHeaders: IncomingHttpHeaders
 ) => {
     const dataExchange = await DataExchange.findOne({
-        providerDataExchange: (remoteConfigs.meta as CallbackMeta).configuration
-            .dataExchange,
+        exchangeIdentifier: (remoteConfigs.meta as CallbackMeta).configuration
+            .dataExchange
     });
 
     let message = '';
@@ -48,11 +48,11 @@ export const verifyPayloadServiceChain = async (
             dataExchange.providerData.checksum === checksum(remoteConfigs.data)
         ) {
             Logger.info({
-                message: `Checksum validation successful for DataExchange ID: ${dataExchange._id}`,
+                message: `Checksum validation successful for exchange Identifier: ${dataExchange.exchangeIdentifier}`,
             });
         } else {
-            message = `Checksum validation failed for DataExchange ID: ${
-                dataExchange._id
+            message = `Checksum validation failed for exchange Identifier:  ${
+                dataExchange.exchangeIdentifier
             }, expected: ${dataExchange.providerData.checksum}, got: ${checksum(
                 remoteConfigs.data
             )}`;
@@ -61,10 +61,10 @@ export const verifyPayloadServiceChain = async (
 
         if (reqHeaders['content-type'] === dataExchange.providerData.mimetype) {
             Logger.info({
-                message: `Mimetype validation successful for DataExchange ID: ${dataExchange._id}`,
+                message: `Mimetype validation successful for exchange Identifier: ${dataExchange.exchangeIdentifier}`,
             });
         } else {
-            message = `Mimetype validation failed for DataExchange ID: ${dataExchange._id}, expected: ${dataExchange.providerData.mimetype}, got: ${reqHeaders['content-type']}`;
+            message = `Mimetype validation failed for exchange Identifier: ${dataExchange.exchangeIdentifier}, expected: ${dataExchange.providerData.mimetype}, got: ${reqHeaders['content-type']}`;
             throw new Error(message);
         }
 
@@ -73,10 +73,10 @@ export const verifyPayloadServiceChain = async (
             dataExchange.providerData.size
         ) {
             Logger.info({
-                message: `Size validation successful for DataExchange ID: ${dataExchange._id}`,
+                message: `Size validation successful for exchange Identifier: ${dataExchange.exchangeIdentifier}`,
             });
         } else {
-            message = `Size validation failed for DataExchange ID: ${dataExchange._id}, expected: ${dataExchange.providerData.size}, got: ${reqHeaders['content-length']}`;
+            message = `Size validation failed for exchange Identifier: ${dataExchange.exchangeIdentifier}, expected: ${dataExchange.providerData.size}, got: ${reqHeaders['content-length']}`;
             throw new Error(message);
         }
     } catch (err) {
@@ -93,11 +93,11 @@ export const verifyPayloadServiceChain = async (
 };
 
 export const verifyPayloadDefault = async (
-    payload: { dataExchange: string; data: any },
+    payload: { exchangeIdentifier: string; data: any },
     reqHeaders: IncomingHttpHeaders
 ) => {
     const dataExchange = await DataExchange.findOne({
-        providerDataExchange: payload.dataExchange,
+        exchangeIdentifier: payload.exchangeIdentifier,
     });
 
     let message = '';
@@ -123,13 +123,11 @@ export const verifyPayloadDefault = async (
 
         if (dataExchange.providerData.checksum === checksum(payload.data)) {
             Logger.info({
-                message: `Checksum validation successful for DataExchange ID: ${dataExchange._id}`,
+                message: `Checksum validation successful for exchange Identifier: ${dataExchange.exchangeIdentifier}`,
                 location: 'verifyPayloadDefault',
             });
         } else {
-            message = `Checksum validation failed for DataExchange ID: ${
-                dataExchange._id
-            }, expected: ${dataExchange.providerData.checksum}, got: ${checksum(
+            message = `Checksum validation failed for exchange Identifier: ${dataExchange.exchangeIdentifier}}, expected: ${dataExchange.providerData.checksum}, got: ${checksum(
                 payload.data
             )}`;
             throw new Error(message);
@@ -137,11 +135,11 @@ export const verifyPayloadDefault = async (
 
         if (reqHeaders['content-type'] === dataExchange.providerData.mimetype) {
             Logger.info({
-                message: `Mimetype validation successful for DataExchange ID: ${dataExchange._id}`,
+                message: `Mimetype validation successful for exchange Identifier: ${dataExchange.exchangeIdentifier}`,
                 location: 'verifyPayloadDefault',
             });
         } else {
-            message = `Mimetype validation failed for DataExchange ID: ${dataExchange._id}, expected: ${dataExchange.providerData.mimetype}, got: ${reqHeaders['content-type']}`;
+            message = `Mimetype validation failed for exchange Identifier: ${dataExchange.exchangeIdentifier}, expected: ${dataExchange.providerData.mimetype}, got: ${reqHeaders['content-type']}`;
             throw new Error(message);
         }
 
@@ -150,11 +148,11 @@ export const verifyPayloadDefault = async (
             dataExchange.providerData.size
         ) {
             Logger.info({
-                message: `Size validation successful for DataExchange ID: ${dataExchange._id}`,
+                message: `Size validation successful for exchange Identifier: ${dataExchange.exchangeIdentifier}`,
                 location: 'verifyPayloadDefault',
             });
         } else {
-            message = `Size validation failed for DataExchange ID: ${dataExchange._id}, expected: ${dataExchange.providerData.size}, got: ${reqHeaders['content-length']}`;
+            message = `Size validation failed for exchange Identifier: ${dataExchange.exchangeIdentifier}, expected: ${dataExchange.providerData.size}, got: ${reqHeaders['content-length']}`;
             throw new Error(message);
         }
     } catch (err) {

@@ -75,7 +75,6 @@ export const mockBilateral = () => {
     };
 
     mock.onGet(bilateralUrls._a.join('')).reply((config) => {
-        console.log('Intercepted GET request:', config.url);
         return [
             200,
             {
@@ -86,7 +85,6 @@ export const mockBilateral = () => {
     });
 
     mock.onPut(/\/internal\/leftoperands\/count\/.*/).reply((config) => {
-        console.log('Intercepted PUT request:', config.url);
         return [200, {}];
     });
 
@@ -114,7 +112,6 @@ export const mockContract = () => {
     };
 
     mock.onGet(contractUrls._a.join('')).reply((config) => {
-        console.log(`Intercepted GET request: ${config.url}`);
         return [
             200,
             {
@@ -132,8 +129,6 @@ export const mockCatalog = (credential: string) => {
     {
         const url = new URL('target_a_resource_a', getConfigFile().catalogUri).href;
         mock.onGet(url).reply((config) => {
-            console.log(`Intercepted GET request: ${config.url}`);
-
             const dataResoure: IDataResource = {
                 representation: {
                     type: 'REST',
@@ -161,7 +156,6 @@ export const mockCatalog = (credential: string) => {
         const url = new URL('target_a_serviceOffering_a', getConfigFile().catalogUri)
             .href;
         mock.onGet(url).reply((config) => {
-            console.log(`Intercepted GET request: ${config.url}`);
             const serviceOffering: IServiceOffering = {
                 name: 'serviceOffering_a',
                 description: 'serviceOffering_a description',
@@ -179,14 +173,12 @@ export const mockEndpoint = (id: string) => {
             .href;
 
         mock.onPut(url).reply((config) => {
-            console.log(`Intercepted PUT request: ${config.url}`);
             return [200, {}];
         });
 
         mock.onPut(
             `${consumerEndpoints._a}/dataexchanges/${consumerDataExchanges._a}`
         ).reply((config) => {
-            console.log('Intercepted PUT request:', config.url);
             try {
                 const data = JSON.parse(config.data);
                 return [200, { data }];
@@ -198,7 +190,6 @@ export const mockEndpoint = (id: string) => {
     {
         const url = new URL('consumer/import', getConfigFile().endpoint).href;
         mock.onPost(url).reply((config) => {
-            console.log('Intercepted POST request:', config.url);
             try {
                 const data = JSON.parse(config.data);
                 return [200, { data }];
