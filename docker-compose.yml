@@ -16,11 +16,21 @@ services:
       MONGO_URI: ${MONGO_URI}
     depends_on:
       - mongodb
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=web"
+
+      - "traefik.http.routers.${NAME}.rule=Host(`${DNS}`)"
+      - "traefik.http.routers.${NAME}.entrypoints=websecure"
+      - "traefik.http.routers.${NAME}.tls.certresolver=letsEncrypt"
+
+      - "traefik.http.services.${NAME}.loadbalancer.server.port=${PORT}"
     networks:
-      - dataspace-connector
+      - web
+      - internal
 
   mongodb:
-    container_name: "mongodb"
+    container_name: ${NAME}-mongodb
     image: mongo:latest
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
@@ -31,8 +41,30 @@ services:
       - ./data:/data/db
       - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
     networks:
-      - dataspace-connector
+      - internal
+
+  pdc-dashboard:
+    image: dataspace-connector-dashboard:latest
+    container_name: ${NAME}-dashboard
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=web"
+
+      - "traefik.http.routers.${NAME}-dashboard.rule=Host(`${DNS}`) && PathPrefix(`/dashboard`)"
+      - "traefik.http.routers.${NAME}-dashboard.entrypoints=websecure"
+      - "traefik.http.routers.${NAME}-dashboard.tls.certresolver=letsEncrypt"
+
+      - "traefik.http.middlewares.${NAME}-dashboard-strip.stripprefix.prefixes=/dashboard"
+      - "traefik.http.routers.${NAME}-dashboard.middlewares=${NAME}-dashboard-strip"
+
+      - "traefik.http.services.${NAME}-dashboard.loadbalancer.server.port=80"
+    networks:
+      - web
+      - internal
 
 networks:
-  dataspace-connector:
-    external: false
+  web:
+    external: true
+  internal:
+    driver: bridge
