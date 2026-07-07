@@ -16,6 +16,7 @@ import { ExchangeError } from '../../../libs/errors/exchangeError';
 import axios from 'axios';
 import { verifyPayloadDefault } from '../../../utils/validation/payloadValidation';
 import { ObjectId } from 'mongodb';
+import {pendingDirectResponseVisualizations} from "../../../libs/loaders/pendingDirectResponseVisualization";
 
 /**
  * trigger the data exchange between provider and consumer in a bilateral or ecosystem contract
@@ -40,11 +41,34 @@ export const consumerExchange = async (
             purposes,
             serviceChainId,
             serviceChainParams,
+            data,
+            directResponseVisualization
         } = req.body;
 
         //Create a data Exchange
         let dataExchange: IDataExchange;
         let providerEndpoint: string;
+        let directResponseVisualizationId: any;
+        let callbackPromise: any;
+
+        const startTime = Date.now();
+        const parsedExchangeTimeout = Number(process.env.EXCHANGE_TIMEOUT);
+        const timeoutSeconds =
+            Number.isFinite(parsedExchangeTimeout) && parsedExchangeTimeout > 0
+                ? parsedExchangeTimeout
+                : 30;
+        const timeout = timeoutSeconds * 1000;
+
+        if(directResponseVisualization) {
+            directResponseVisualizationId = new ObjectId().toString();
+            callbackPromise = new Promise((resolve) => {
+                const timer = setTimeout(() => {
+                    pendingDirectResponseVisualizations.delete(directResponseVisualizationId);
+                }, timeout);
+
+                pendingDirectResponseVisualizations.set(directResponseVisualizationId, { resolve, timer });
+            });
+        }
 
         // ecosystem contract
         if (contract.includes('contracts')) {
@@ -61,6 +85,8 @@ export const consumerExchange = async (
                 consumerParams,
                 serviceChainId,
                 serviceChainParams,
+                directResponseVisualizationId,
+                data
             });
 
             dataExchange = ecosystemDataExchange;
@@ -77,6 +103,8 @@ export const consumerExchange = async (
                 consumerParams,
                 serviceChainId,
                 serviceChainParams,
+                directResponseVisualizationId,
+                data
             });
 
             dataExchange = bilateralDataExchange;
@@ -146,7 +174,8 @@ export const consumerExchange = async (
             );
 
             await ProviderExportService(
-                updatedDataExchange.consumerDataExchange
+                updatedDataExchange.consumerDataExchange,
+                data
             );
         } else {
             if (providerEndpoint === (await getEndpoint())) {
@@ -164,28 +193,37 @@ export const consumerExchange = async (
                 providerExport(providerEndpoint, dataExchange._id.toString())
             );
         }
-        const startTime = Date.now();
-        const parsedExchangeTimeout = Number(process.env.EXCHANGE_TIMEOUT);
-        const timeoutSeconds =
-            Number.isFinite(parsedExchangeTimeout) && parsedExchangeTimeout > 0
-                ? parsedExchangeTimeout
-                : 30;
-        const timeout = timeoutSeconds * 1000;
+
         let message: string;
         let success = false;
+        let callbackData: any;
         // return code 200 everything is ok
         while (dataExchange.status === 'PENDING') {
+
+            if (directResponseVisualization && directResponseVisualizationId && callbackPromise) {
+                try {
+                    callbackData = await callbackPromise;
+                    dataExchange = await DataExchange.findById(dataExchange._id);
+                } catch (err) {
+                    message = `${timeoutSeconds} sec Timeout reached.`;
+                    break;
+                }
+            }
+
             if (Date.now() - startTime > timeout) {
                 message = `${timeoutSeconds} sec Timeout reached.`;
                 break;
             }
+
             dataExchange = await DataExchange.findById(dataExchange._id);
+
             if (dataExchange.status === 'IMPORT_SUCCESS') {
                 success = true;
+                break;
             }
         }
 
-        return restfulResponse(res, 200, { success, dataExchange, message });
+        return restfulResponse(res, 200, { success, dataExchange, message, directResponseVisualization: callbackData });
     } catch (e) {
         Logger.error({
             message: e.message,

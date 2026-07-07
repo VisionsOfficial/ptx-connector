@@ -65,6 +65,9 @@ interface IDataExchange {
     consumerParams?: IParams;
     serviceChain?: ContractServiceChain;
     serviceChainParams?: [IData];
+    directResponseVisualizationId?: string;
+    callbackUrl?: string;
+    data?: boolean;
 
     // Define method signatures
     createDataExchangeToOtherParticipant(
@@ -164,6 +167,9 @@ const schema = new Schema({
             },
         ],
     },
+    directResponseVisualizationId: String,
+    callbackUrl: String,
+    data: Boolean,
 });
 
 /**
@@ -189,6 +195,9 @@ schema.methods.createDataExchangeToOtherParticipant = async function (
             consumerDataExchange: this._id,
             serviceChain: this.serviceChain,
             providerData: this.providerData,
+            directResponseVisualizationId: this.directResponseVisualizationId,
+            callbackUrl: this.callbackUrl,
+            data: this.data,
         };
     } else {
         data = {
@@ -205,6 +214,9 @@ schema.methods.createDataExchangeToOtherParticipant = async function (
             providerDataExchange: this._id,
             serviceChain: this.serviceChain,
             providerData: this.providerData,
+            directResponseVisualizationId: this.directResponseVisualizationId,
+            callbackUrl: this.callbackUrl,
+            data: this.data,
         };
     }
     const response = await axios.post(
@@ -280,6 +292,9 @@ schema.methods.syncWithInfrastructure = async function (
             providerDataExchange: this.providerDataExchange,
             providerEndpoint: this.providerEndpoint,
             providerData: this.providerData,
+            directResponseVisualizationId: this.directResponseVisualizationId,
+            callbackUrl: this.callbackUrl,
+            data: this.data,
         })
     );
 
