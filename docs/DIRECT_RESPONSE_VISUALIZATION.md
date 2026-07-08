@@ -15,6 +15,8 @@ This is particularly useful for:
 - **Injecting custom data** through a service chain without requiring a live provider.
 - **Direct integration** of the PDC data exchange requests
 
+> ⚠️ **Limitation — Consent flow not supported**: exchanges that involve a consent-based flow are **not compatible** with `directResponseVisualization`. The long-polling mechanism cannot accommodate the asynchronous, user-driven nature of the consent validation step. Using `directResponseVisualization: true` in a consent-based exchange will result in a timeout.
+
 ---
 
 ## How It Works
@@ -438,6 +440,7 @@ This feature was introduced in connector version **1.11.0**. The table below sum
 - **The only blocking case** is when a ≥ 1.11.0 consumer sends the `data` field **without** `resourceId` to a provider on a lower version. Since the older provider cannot handle a request missing a resource reference, the exchange will fail. To stay safe when the provider version is unknown or older, always include `resourceId` alongside `data`.
 - **When a ≥ 1.11.0 consumer targets a < 1.11.0 provider** and uses `directResponseVisualization: true` (without `data`), the exchange proceeds normally but the feature is non-functional — the timeout elapses and the response returns `directResponseVisualization: null`.
 - **A consumer on a version lower than 1.11.0** does not expose the `directResponseVisualization` or `data` fields. Any client sending those fields to such a consumer will receive a standard exchange response — the exchange itself is unaffected.
+- **Consent-based exchanges are not supported.** The consent flow relies on an asynchronous, user-driven validation step that is incompatible with the long-polling mechanism. Do not use `directResponseVisualization: true` in exchanges that require consent validation.
 
 ---
 
@@ -461,6 +464,7 @@ This feature was introduced in connector version **1.11.0**. The table below sum
 - **docs**: Added *Backward Compatibility* section documenting version interoperability rules between connector versions.
 - **docs**: Clarified that if either the consumer or the provider is on a version lower than 1.11.0, `directResponseVisualization` and `data` features are non-functional but do not block exchanges.
 - **docs**: Documented the only breaking case: a ≥ 1.11.0 consumer sending `data` without `resourceId` to a < 1.11.0 provider will cause the exchange to fail.
+- **docs**: Documented that consent-based exchanges are not supported by the `directResponseVisualization` feature.
 - **feat**: Added `pdcVersion` field to the `DataExchange` document to store the connector version at exchange creation time, enabling backward compatibility checks.
 
 ### 2026-07-06
