@@ -61,13 +61,17 @@ export const consumerExchange = async (
 
         if(directResponseVisualization) {
             directResponseVisualizationId = new ObjectId().toString();
-            callbackPromise = new Promise((resolve) => {
+            callbackPromise = new Promise((resolve, reject) => {
                 const timer = setTimeout(() => {
                     pendingDirectResponseVisualizations.delete(directResponseVisualizationId);
+                    reject(new Error('Timeout reached'));
                 }, timeout);
 
-                pendingDirectResponseVisualizations.set(directResponseVisualizationId, { resolve, timer });
+                pendingDirectResponseVisualizations.set(directResponseVisualizationId, { resolve, reject, timer });
             });
+            // Prevent unhandled rejection crashes if the promise is never awaited
+            // (e.g. when the connector version check causes the callback path to be skipped)
+            callbackPromise.catch(() => {});
         }
 
         // ecosystem contract
@@ -199,15 +203,29 @@ export const consumerExchange = async (
         let callbackData: any;
         // return code 200 everything is ok
         while (dataExchange.status === 'PENDING') {
-
-            if (directResponseVisualization && directResponseVisualizationId && callbackPromise) {
+            if (
+                directResponseVisualization &&
+                directResponseVisualizationId &&
+                callbackPromise &&
+                (dataExchange.consumerPdcVersion >= "1.11.0" || dataExchange.providerPdcVersion >= "1.11.0")
+            ) {
                 try {
                     callbackData = await callbackPromise;
                     dataExchange = await DataExchange.findById(dataExchange._id);
                 } catch (err) {
-                    message = `${timeoutSeconds} sec Timeout reached.`;
+                    message = `${timeoutSeconds} sec Timeout directResponseVisualization reached.`;
+                    dataExchange = await DataExchange.findById(dataExchange._id);
                     break;
                 }
+            } else {
+                if (callbackPromise && directResponseVisualizationId) {
+                    const { timer } = pendingDirectResponseVisualizations.get(directResponseVisualizationId) || {};
+                    if (timer) {
+                        clearTimeout(timer);
+                        pendingDirectResponseVisualizations.delete(directResponseVisualizationId);
+                    }
+                }
+                callbackPromise = null;
             }
 
             if (Date.now() - startTime > timeout) {
@@ -216,11 +234,10 @@ export const consumerExchange = async (
             }
 
             dataExchange = await DataExchange.findById(dataExchange._id);
+        }
 
-            if (dataExchange.status === 'IMPORT_SUCCESS') {
-                success = true;
-                break;
-            }
+        if (dataExchange.status === 'IMPORT_SUCCESS') {
+            success = true;
         }
 
         return restfulResponse(res, 200, { success, dataExchange, message, directResponseVisualization: callbackData });

@@ -13,7 +13,7 @@ This is particularly useful for:
 - **Debugging and testing** data pipelines end-to-end.
 - **API-driven workflows** where the caller needs the data synchronously.
 - **Injecting custom data** through a service chain without requiring a live provider.
-- **Direct integration**  of the PDC data exchange requests
+- **Direct integration** of the PDC data exchange requests
 
 ---
 
@@ -63,7 +63,7 @@ A timeout (default **30 seconds**, configurable via the `EXCHANGE_TIMEOUT` envir
 
 ### 3. The exchange is initiated with the callback metadata
 
-The `directResponseVisualizationId` is forwarded to either `triggerBilateralFlow` or `triggerEcosystemFlow`. Both flows store two extra fields on the created `DataExchange` document:
+The `directResponseVisualizationId` is forwarded to either `triggerBilateralFlow` or `triggerEcosystemFlow`. Both flows store three extra fields on the created `DataExchange` document:
 
 | Field                           | Value                                                                                        |
 |---------------------------------|----------------------------------------------------------------------------------------------|
@@ -293,7 +293,7 @@ Existing endpoint — extended with the optional `directResponseVisualization` a
 | **`directResponseVisualization`** | `boolean` | ❌ | When `true`, the response waits and returns the exchanged data |
 | **`data`** | `array` | ❌ | Array of data objects to inject directly into the exchange, bypassing the provider export step. Compatible with both bilateral and service chain flows. |
 
-**Response (200) — with service chain**
+**Response (200) — service chain with injected `data`**
 ```json
 {
     "timestamp": 1783342073905,
@@ -422,19 +422,46 @@ Internal callback endpoint used by the consumer import service to resolve a pend
 
 ---
 
+## Backward Compatibility
+
+This feature was introduced in connector version **1.11.0**. The table below summarises the behaviour depending on the versions of the consumer and provider connectors involved in an exchange.
+
+| Consumer version | Provider version | `directResponseVisualization` | `data` field | Behaviour |
+|---|---|---|---|---|
+| ≥ 1.11.0 | ≥ 1.11.0 | ✅ Fully functional | ✅ Fully functional | All features work as described in this document. |
+| ≥ 1.11.0 | < 1.11.0 | ⚠️ Not functional but not blocking | ⚠️ Not functional — **blocking** if `resourceId` is omitted | The exchange is not blocked. However, if the consumer connector (≥ 1.11.0) triggers an exchange with `data` but without `resourceId`, the provider connector (< 1.11.0) cannot process the request and will respond with **Wrong resource given**, causing the exchange to fail. |
+| < 1.11.0 | any | ❌ Not available | ❌ Not available | The consumer connector does not support these fields. They are silently ignored and the exchange proceeds normally as a standard fire-and-forget exchange. **No exchange is blocked.** |
+
+### Key rules
+
+- **If either the consumer or the provider is on a version lower than 1.11.0, none of the features are functional** — but this does not block exchanges. The exchange completes normally as a standard fire-and-forget flow.
+- **The only blocking case** is when a ≥ 1.11.0 consumer sends the `data` field **without** `resourceId` to a provider on a lower version. Since the older provider cannot handle a request missing a resource reference, the exchange will fail. To stay safe when the provider version is unknown or older, always include `resourceId` alongside `data`.
+- **When a ≥ 1.11.0 consumer targets a < 1.11.0 provider** and uses `directResponseVisualization: true` (without `data`), the exchange proceeds normally but the feature is non-functional — the timeout elapses and the response returns `directResponseVisualization: null`.
+- **A consumer on a version lower than 1.11.0** does not expose the `directResponseVisualization` or `data` fields. Any client sending those fields to such a consumer will receive a standard exchange response — the exchange itself is unaffected.
+
+---
+
 ## Files Changed
 
-| File                                                      | Change                                                                                                                                                                                                                                                                                                             |
-|-----------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `src/routes/public/v1/consumer.public.router.ts`          | Added `body('directResponseVisualization').isBoolean().optional()` and `body('data').isArray().optional()` validators to `/consumer/exchange`                                                                                                                                                                      |
-| `src/controllers/public/v1/consumer.public.controller.ts` | Added `directResponseVisualization` / `directResponseVisualizationId` / `callbackPromise` / `data` logic; returns `directResponseVisualization` payload in response                                                                                                                                                |
-| `src/services/public/v1/consumer.public.service.ts`       | `triggerBilateralFlow` and `triggerEcosystemFlow` now accept and store `directResponseVisualizationId`, `callbackUrl`, and `data` (boolean flag) on the `DataExchange` document; when `data` is provided the provider export is skipped; `consumerImportService` posts the imported data to `callbackUrl` when set |
-| `src/libs/loaders/pendingDirectResponseVisualization.ts`  | New file — exports the `pendingDirectResponseVisualizations` in-memory `Map` shared between the controller and the callback route                                                                                                                                                                                  |
-| `src/routes/public/v1/callback.public.router.ts`          | New route `POST /callbacks/direct-response-visualization/:directResponseVisualizationId` to resolve pending previews                                                                                                                                                                                               |
+| File | Change |
+|---|---|
+| `src/routes/public/v1/consumer.public.router.ts` | Added `body('directResponseVisualization').isBoolean().optional()` and `body('data').isArray().optional()` validators to `/consumer/exchange` |
+| `src/controllers/public/v1/consumer.public.controller.ts` | Added `directResponseVisualization` / `directResponseVisualizationId` / `callbackPromise` / `data` logic; returns `directResponseVisualization` payload in response |
+| `src/services/public/v1/consumer.public.service.ts` | `triggerBilateralFlow` and `triggerEcosystemFlow` now accept and store `directResponseVisualizationId`, `callbackUrl`, and `data` (boolean flag) on the `DataExchange` document; when `data` is provided the provider export is skipped; `consumerImportService` posts the imported data to `callbackUrl` when set |
+| `src/libs/loaders/pendingDirectResponseVisualization.ts` | New file — exports the `pendingDirectResponseVisualizations` in-memory `Map` shared between the controller and the callback route |
+| `src/routes/public/v1/callback.public.router.ts` | New route `POST /callbacks/direct-response-visualization/:directResponseVisualizationId` to resolve pending previews |
+| `src/models/DataExchange.ts` | Added `pdcVersion` field on the `DataExchange` document to store the connector version at exchange creation time, enabling backward compatibility checks |
 
 ---
 
 ## Changelog
+
+### 2026-07-08
+
+- **docs**: Added *Backward Compatibility* section documenting version interoperability rules between connector versions.
+- **docs**: Clarified that if either the consumer or the provider is on a version lower than 1.11.0, `directResponseVisualization` and `data` features are non-functional but do not block exchanges.
+- **docs**: Documented the only breaking case: a ≥ 1.11.0 consumer sending `data` without `resourceId` to a < 1.11.0 provider will cause the exchange to fail.
+- **feat**: Added `pdcVersion` field to the `DataExchange` document to store the connector version at exchange creation time, enabling backward compatibility checks.
 
 ### 2026-07-06
 

@@ -8,7 +8,7 @@ import {
     IServiceChain,
     IParams,
 } from '../../../utils/types/dataExchange';
-import { getEndpoint } from '../../../libs/loaders/configuration';
+import {getEndpoint, getVersion} from '../../../libs/loaders/configuration';
 import { getCatalogData } from '../../../libs/third-party/catalog';
 import { ExchangeError } from '../../../libs/errors/exchangeError';
 import { getContract } from '../../../libs/third-party/contract';
@@ -303,6 +303,8 @@ export const triggerEcosystemFlow = async (props: {
                 consumerSelfDescriptionResponse?.dataspaceEndpoint,
             providerEndpoint:
             providerEndpoint,
+            consumerPdcVersion: await getVersion(),
+            providerPdcVersion: await getVersion(),
             resources: mappedDataResources,
             purposes: mappedSoftwareResources,
             purposeId: purposeId,
