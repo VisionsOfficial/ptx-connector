@@ -1,6 +1,6 @@
 {
     "name": "ptx-dataspace-connector",
-    "version": "1.10.2-pdcaas.3",
+    "version": "1.11.0",
     "description": "Prometheus-X Data Space Connector",
     "main": "src/index.ts",
     "engines": {
@@ -95,6 +95,7 @@
         "json-odrl-manager": "github:Prometheus-X-association/odrl-manager#v2.0.0-alpha.5",
         "jsonwebtoken": "^9.0.2",
         "mongodb": "^6.3.0",
+        "mongodb-memory-server": "^10.1.2",
         "mongoose": "8.1.0",
         "morgan": "^1.10.0",
         "multer": "1.4.5-lts.1",
