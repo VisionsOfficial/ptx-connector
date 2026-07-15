@@ -1,7 +1,7 @@
 import { connection, Schema } from 'mongoose';
 import axios from 'axios';
 import { urlChecker } from '../urlChecker';
-import { getEndpoint } from '../../libs/loaders/configuration';
+import {getEndpoint, getVersion} from '../../libs/loaders/configuration';
 import { ObjectId } from 'mongodb';
 import { handle } from '../../libs/loaders/handler';
 import { ContractServiceChain } from './contractServiceChain';
@@ -38,11 +38,13 @@ export interface IServiceChain {
 interface IDataExchange {
     _id: ObjectId;
     providerEndpoint: string;
+    providerPdcVersion: string;
     resources: [IData];
     purposes: [IData];
     purposeId?: string;
     contract: string;
     consumerEndpoint?: string;
+    consumerPdcVersion?: string;
     consumerDataExchange?: string;
     providerDataExchange?: string;
     status: string;
@@ -67,6 +69,9 @@ interface IDataExchange {
     serviceChainParams?: [IData];
     chaindId?: string | void;
     targetId: string | void;
+    directResponseVisualizationId?: string;
+    callbackUrl?: string;
+    data?: boolean;
 
     // Define method signatures
     createDataExchangeToOtherParticipant(
@@ -129,6 +134,8 @@ const schema = new Schema({
     contract: String,
     consumerEndpoint: String,
     providerEndpoint: String,
+    consumerPdcVersion: String,
+    providerPdcVersion: String,
     consumerDataExchange: String,
     providerDataExchange: String,
     providerData: {
@@ -168,6 +175,9 @@ const schema = new Schema({
             },
         ],
     },
+    directResponseVisualizationId: String,
+    callbackUrl: String,
+    data: Boolean,
 });
 
 /**
@@ -181,6 +191,7 @@ schema.methods.createDataExchangeToOtherParticipant = async function (
     if (participant === 'provider') {
         data = {
             consumerEndpoint: await getEndpoint(),
+            consumerPdcVersion: await getVersion(),
             resources: this.resources,
             purposes: this.purposes,
             purposeId: this.purposeId,
@@ -193,10 +204,14 @@ schema.methods.createDataExchangeToOtherParticipant = async function (
             consumerDataExchange: this._id,
             serviceChain: this.serviceChain,
             providerData: this.providerData,
+            directResponseVisualizationId: this.directResponseVisualizationId,
+            callbackUrl: this.callbackUrl,
+            data: this.data,
         };
     } else {
         data = {
             providerEndpoint: await getEndpoint(),
+            providerPdcVersion: await getVersion(),
             resources: this.resources,
             purposes: this.purposes,
             purposeId: this.purposeId,
@@ -209,8 +224,30 @@ schema.methods.createDataExchangeToOtherParticipant = async function (
             providerDataExchange: this._id,
             serviceChain: this.serviceChain,
             providerData: this.providerData,
+            directResponseVisualizationId: this.directResponseVisualizationId,
+            callbackUrl: this.callbackUrl,
+            data: this.data,
         };
     }
+
+    try{
+        const participantPdcSelfDescription = await axios.get(
+            participant === 'provider'
+                ? this.providerEndpoint
+                : this.consumerEndpoint,
+        );
+
+        const participantPdcVersion = participantPdcSelfDescription.data.content["ptx:version"]
+
+        if(participant === 'provider'){
+            this.providerPdcVersion = participantPdcVersion;
+        } else {
+            this.consumerPdcVersion = participantPdcVersion;
+        }
+    } catch (error) {
+        console.error(`Failed to fetch PDC version from ${participant} endpoint:`, error);
+    }
+
     const response = await axios.post(
         urlChecker(
             participant === 'provider'
@@ -284,6 +321,9 @@ schema.methods.syncWithInfrastructure = async function (
             providerDataExchange: this.providerDataExchange,
             providerEndpoint: this.providerEndpoint,
             providerData: this.providerData,
+            directResponseVisualizationId: this.directResponseVisualizationId,
+            callbackUrl: this.callbackUrl,
+            data: this.data,
         })
     );
 
