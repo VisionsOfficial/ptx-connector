@@ -1,6 +1,6 @@
 {
     "name": "ptx-dataspace-connector",
-    "version": "1.11.0-techspace",
+    "version": "1.12.0-techspace",
     "description": "Prometheus-X Data Space Connector",
     "main": "src/index.ts",
     "engines": {
