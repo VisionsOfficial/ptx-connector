@@ -17,6 +17,7 @@ import axios from 'axios';
 import { verifyPayloadDefault } from '../../../utils/validation/payloadValidation';
 import { ObjectId } from 'mongodb';
 import {pendingDirectResponseVisualizations} from "../../../libs/loaders/pendingDirectResponseVisualization";
+import {rawResponse} from "../../../libs/api/RAWResponse";
 
 /**
  * trigger the data exchange between provider and consumer in a bilateral or ecosystem contract
@@ -42,7 +43,8 @@ export const consumerExchange = async (
             serviceChainId,
             serviceChainParams,
             data,
-            directResponseVisualization
+            directResponseVisualization,
+            visualizationOnly
         } = req.body;
 
         //Create a data Exchange
@@ -238,6 +240,10 @@ export const consumerExchange = async (
 
         if (dataExchange.status === 'IMPORT_SUCCESS') {
             success = true;
+        }
+
+        if (directResponseVisualizationId && visualizationOnly) {
+            return rawResponse(res, callbackData);
         }
 
         return restfulResponse(res, 200, { success, dataExchange, message, directResponseVisualization: callbackData });
