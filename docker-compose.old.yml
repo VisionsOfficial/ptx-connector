@@ -1,12 +1,14 @@
 services:
   dataspace-connector:
-    image: dataspace-connector:latest
-    container_name: ${NAME}-dataspace-connector
+    build:
+      context: .
+      dockerfile: docker/app/Dockerfile
+      args:
+        ENV: ${NODE_ENV}
     restart: unless-stopped
     tty: true
     volumes:
-      - './.env/:/usr/src/app/.env'
-      - './config.json:/usr/src/app/src/config.json:ro'
+      - './src/:/usr/src/app/src'
     environment:
       MONGO_URI: ${MONGO_URI}
       NAME: ${NAME}
@@ -28,22 +30,19 @@ services:
       - internal
 
   mongodb:
-    container_name: ${NAME}-mongodb
-    image: mongo:latest
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
-      MONGO_INITDB_DATABASE: dataspace-connector
+    build:
+      context: .
+      dockerfile: docker/mongodb/Dockerfile
     restart: unless-stopped
     volumes:
       - ./data:/data/db
-      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
     networks:
       - internal
 
   pdc-dashboard:
-    image: dataspace-connector-dashboard:latest
-    container_name: ${NAME}-dashboard
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
