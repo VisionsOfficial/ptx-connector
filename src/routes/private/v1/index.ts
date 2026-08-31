@@ -18,6 +18,11 @@ import kpiPrivateRouter from './kpi.private.router';
  *       type: apiKey
  *       in: header
  *       name: x-exchange-trigger-api-key
+ *     kpiApiKey:
+ *       type: apiKey
+ *       in: header
+ *       name: x-kpi-api-key
+ *       description: Static API key for KPI routes. Must match the KPI_API_KEY environment variable.
  */
 
 const routers = [
