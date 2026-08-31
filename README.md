@@ -6,18 +6,6 @@ The Data Space Connector is an open source project aimed to facilitate the onboa
 
 Visit this [repository's wiki](https://github.com/Prometheus-X-association/dataspace-connector/wiki) to find documentation related to the PDC.
 
-## Publication
-
-```shell
-docker buildx build \
-  -f docker/app/Dockerfile \
-  --platform linux/amd64,linux/arm64 \
-  -t ghcr.io/visionsofficial/pdcaas-dashboard:tag \
-  -t ghcr.io/visionsofficial/pdcaas-dashboard:latest \
-  --push \
-  .
-```
-
 ## Installation
 
 ### Docker

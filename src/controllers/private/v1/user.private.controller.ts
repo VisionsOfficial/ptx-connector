@@ -5,7 +5,7 @@ import * as XLSX from 'xlsx';
 import { Readable } from 'stream';
 import fs from 'fs';
 import {
-    getConsentUri,
+    getConsentUri, getProxy,
     getRegistrationUri,
     getSecretKey,
     getServiceKey,
@@ -14,6 +14,7 @@ import { Logger } from '../../../libs/loggers';
 import axios from 'axios';
 import { urlChecker } from '../../../utils/urlChecker';
 import { consentServiceResume } from '../../../libs/third-party/consent';
+import {checkConnectorProxy} from "../../../libs/third-party/proxy";
 
 /**
  * Create a user and create a user identifier in the consent manager
@@ -378,6 +379,9 @@ const createConsentUserIdentifier = async (user: IUser, jwt: string) => {
                 headers: {
                     Authorization: `Bearer ${jwt}`,
                 },
+                ...(await checkConnectorProxy({
+                    configProxy: getProxy()
+                }))
             }
         );
 
@@ -418,6 +422,9 @@ const createConsentUserIdentifiers = async (data: IUser[], jwt: string) => {
                 headers: {
                     Authorization: `Bearer ${jwt}`,
                 },
+                ...(await checkConnectorProxy({
+                    configProxy: getProxy()
+                }))
             }
         );
 
@@ -451,6 +458,9 @@ const updateConsentUserIdentifiers = async (data: IUser, jwt: string) => {
                 headers: {
                     Authorization: `Bearer ${jwt}`,
                 },
+                ...(await checkConnectorProxy({
+                    configProxy: getProxy()
+                }))
             }
         );
 
@@ -483,6 +493,9 @@ const deleteConsentUserIdentifiers = async (data: IUser, jwt: string) => {
                 headers: {
                     Authorization: `Bearer ${jwt}`,
                 },
+                ...(await checkConnectorProxy({
+                    configProxy: getProxy()
+                }))
             }
         );
 
@@ -514,7 +527,10 @@ export const consentManagerLogin = async (): Promise<string> => {
             {
                 clientID: await getServiceKey(),
                 clientSecret: await getSecretKey(),
-            }
+            },
+            (await checkConnectorProxy({
+                configProxy: getProxy()
+            }))
         );
         if (!res) {
             throw Error('Consent login error.');
@@ -563,7 +579,10 @@ export const createUserToApp = async (
         if (registrationEndpoint) {
             const registrationResponse = await axios.post(
                 registrationEndpoint,
-                { ...req.body }
+                { ...req.body },
+                (await checkConnectorProxy({
+                    configProxy: getProxy()
+                }))
             );
 
             if (

@@ -120,7 +120,7 @@ const r: Router = Router();
  *               required: false
  *               example: [{ "_id": "660ffe57aecb6ea62e307901", "email": "john@doe.com" }]
  *             visualizationOnly:
- *               description: When true (requires directResponseVisualization: true), the endpoint returns only the raw imported payload as the HTTP response body, without the standard { success, dataExchange, directResponseVisualization } envelope.
+ *               description: "When true (requires directResponseVisualization: true), the endpoint returns only the raw imported payload as the HTTP response body, without the standard { success, dataExchange, directResponseVisualization } envelope."
  *               type: boolean
  *               required: false
  *               example: true
