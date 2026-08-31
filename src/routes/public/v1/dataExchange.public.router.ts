@@ -6,7 +6,7 @@ import {
     updateDataExchange,
     getDataExchangeById,
     createDataExchange,
-    updateDataExchangeDataProcessing,
+    updateDataExchangeDataProcessing, transferCompleted, transferFailed,
 } from '../../../controllers/public/v1/dataExchange.public.controller';
 const r: Router = Router();
 
@@ -83,92 +83,56 @@ r.get('/', getDataExchanges);
  */
 r.get('/:id', getDataExchangeById);
 
-// /**
-//  * @swagger
-//  * /dataexchanges/{id}:
-//  *   put:
-//  *     summary: update data exchange
-//  *     tags: [Data-Exchange]
-//  *     produces:
-//  *       - application/json
-//  *     parameters:
-//  *        - name: id
-//  *          description: data exchange id.
-//  *          in: path
-//  *          required: true
-//  *          type: string
-//  *     requestBody:
-//  *      content:
-//  *       application/json:
-//  *         schema:
-//  *           type: object
-//  *           properties:
-//  *             consumerEndpoint:
-//  *               description: consumer endpoint where the data have been imported
-//  *             payload:
-//  *               description: payload
-//  *               type: string
-//  *     responses:
-//  *       '200':
-//  *         description: Successful response
-//  */
 r.put('/:id', updateDataExchange);
 
 r.put('/:id/servicechains/:index', updateDataExchangeDataProcessing);
 
-// /**
-//  * @swagger
-//  * /dataexchanges/{id}/error:
-//  *   put:
-//  *     summary: Get Data space Connector Self Description
-//  *     tags: [Data-Exchange]
-//  *     produces:
-//  *       - application/json
-//  *     parameters:
-//  *        - name: id
-//  *          description: data exchange id.
-//  *          in: path
-//  *          required: true
-//  *          type: string
-//  *     requestBody:
-//  *      content:
-//  *       application/json:
-//  *         schema:
-//  *           type: object
-//  *           properties:
-//  *             origin:
-//  *               description: origin of the update
-//  *               type: string
-//  *             payload:
-//  *               description: information about the error
-//  *               type: string
-//  *     responses:
-//  *       '200':
-//  *         description: Successful response
-//  */
 r.put('/:id/error', error);
 
-// /**
-//  * @swagger
-//  * /dataexchanges/{id}/success:
-//  *   put:
-//  *     summary: Get Data space Connector Self Description
-//  *     tags: [Data-Exchange]
-//  *     produces:
-//  *       - application/json
-//  *     requestBody:
-//  *      content:
-//  *       application/json:
-//  *         schema:
-//  *           type: object
-//  *           properties:
-//  *             origin:
-//  *               description: origin of the update
-//  *               type: string
-//  *     responses:
-//  *       '200':
-//  *         description: Successful response
-//  */
 r.put('/:id/success', success);
+
+/**
+ * @swagger
+ * /dataexchanges/{id}/transfer/completed:
+ *   put:
+ *     summary: Change data exchange status to TRANSFER_COMPLETED
+ *     tags: [Data-Exchange]
+ *     produces:
+ *       - application/json
+ *     parameters:
+ *        - name: id
+ *          description: data exchange id.
+ *          in: path
+ *          required: true
+ *          type: string
+ *     responses:
+ *       '200':
+ *         description: Successful response
+ *       '400':
+ *         description: Error response
+ */
+r.put('/:id/transfer/completed', transferCompleted);
+
+/**
+ * @swagger
+ * /dataexchanges/{id}/transfer/failed:
+ *   put:
+ *     summary: Change data exchange status to TRANSFER_FAILED
+ *     tags: [Data-Exchange]
+ *     produces:
+ *       - application/json
+ *     parameters:
+ *        - name: id
+ *          description: data exchange id.
+ *          in: path
+ *          required: true
+ *          type: string
+ *     responses:
+ *       '200':
+ *         description: Successful response
+ *       '400':
+ *         description: Error response
+ */
+r.put('/:id/transfer/failed', transferFailed);
 
 export default r;
