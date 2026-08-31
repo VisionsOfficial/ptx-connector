@@ -75,18 +75,12 @@ export const startServer = async (port?: number) => {
     const specs = swaggerJSDoc(OpenAPIOption);
 
     app.use('/docs', serve, setup(specs));
+    app.use('/static', expressStatic(path.join(__dirname, './public/')));
+
 
     app.get('/health', (req: Request, res: Response) => {
         return res.status(200).send('OK');
     });
-
-    app.use('/static', expressStatic(path.join(__dirname, './public/')));
-
-    if (config.env === 'development') {
-        app.get('/env', async (req: Request, res: Response) => {
-            return res.json(config);
-        });
-    }
 
     app.use(morganLogs);
 

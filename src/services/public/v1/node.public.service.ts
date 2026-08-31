@@ -23,10 +23,14 @@ import { getContract } from '../../../libs/third-party/contract';
 import { selfDescriptionProcessor } from '../../../utils/selfDescriptionProcessor';
 import { pepVerification } from '../../../utils/pepVerification';
 import { verifyInfrastructureInContract } from '../../../utils/verifyInfrastructureInContract';
+import { sendDVCT } from './dvct.public.service';
+import { getDvctUri } from '../../../libs/loaders/configuration';
+import { ContractResponseType } from '../../../utils/responses/contract.response';
 import { isJsonString } from '../../../utils/isJsonString';
 import {getConfigFile, getEndpoint} from '../../../libs/loaders/configuration';
 import { ServiceChainAdapterService } from './servicechainadapter.public.service';
 import { ObjectId } from 'mongodb';
+import axios from "axios";
 
 type CallbackMeta = PipelineMeta & {
     configuration: {
@@ -56,6 +60,7 @@ export const nodeCallbackService = async (props: {
         nextNodeResolver,
     } = props;
     let output: any;
+    let response = null;
     let decryptedConsent: IDecryptedConsent;
 
     const dataExchange = await DataExchange.findOne({
@@ -76,6 +81,7 @@ export const nodeCallbackService = async (props: {
             { _id: (meta as CallbackMeta).configuration.dataExchange },
         ],
     });
+    dataExchange.DVCTPassed = false;
 
     if (!dataExchange) {
         throw new Error('data exchange not found.');
@@ -193,10 +199,17 @@ export const nodeCallbackService = async (props: {
             // softwareResource = default POST data, use conf if exists and check for is API
             if (offer.softwareResources && offer.softwareResources.length > 0) {
                 for (const softwareResource of offer.softwareResources) {
-                    //look in data exchange if params exists for this resource in serviceChainParams array
-                    const resource = dataExchange.serviceChainParams.filter(
+
+                    let resource = dataExchange.serviceChainParams.filter(
                         (element) => element?.resource === softwareResource
                     );
+
+                    // if no nextTargetId it means that we are in the last node of the chain and we need to look for the resource in the purposes array
+                    if(!nextTargetId && resource.length === 0){
+                       resource = dataExchange.purposes.filter(
+                            (element) => element?.resource === softwareResource
+                        );
+                    }
 
                     //retrieve targetId = offer
                     const [softwareResourceSD] = await handle(
@@ -226,8 +239,6 @@ export const nodeCallbackService = async (props: {
                                 : {}),
                         };
 
-                        let response = null;
-
                         const payload = {
                             resource: resource[0]?.resource,
                             representationUrl:
@@ -251,7 +262,7 @@ export const nodeCallbackService = async (props: {
                             targetId,
                         };
 
-                        if (getConfigFile().serviceChainAdapter) {
+                        if (getConfigFile().serviceChainAdapter && nextTargetId) {
                             response = await new ServiceChainAdapterService(
                                 payload
                             ).processPotsOrPutRepresentationFlow();
@@ -265,7 +276,39 @@ export const nodeCallbackService = async (props: {
                 }
             }
 
+            // Check if the contract uses DVCT and send DVCT payload if it does
+            if (contractResp && contractResp.useDVCT && (await getDvctUri())) {
+                try {
+                    const currentParticipant = offer.providedBy;
+
+                    let reachEndFlow = false;
+                    if (!nextTargetId) {
+                        reachEndFlow = true;
+                    }
+                    await sendDVCT(
+                        previousTargetId,
+                        dataExchange.providerEndpoint,
+                        dataExchange.consumerEndpoint,
+                        dataExchange.serviceChain.services[0].participant,
+                        dataExchange.serviceChain,
+                        previousTargetId,
+                        currentParticipant,
+                        nextTargetId,
+                        reachEndFlow,
+                        contractResp as ContractResponseType
+                    );
+                } catch (error) {
+                    throw new Error(error.message);
+                }
+            }
+            await dataExchange.save();
+
             await dataExchange.completeServiceChain(targetId);
+
+            if(!nextTargetId && dataExchange.directResponseVisualizationId && dataExchange.callbackUrl){
+                axios.post(dataExchange.callbackUrl, response)
+            }
+
             return {
                 ...output,
             };
@@ -375,17 +418,22 @@ export const nodePreCallbackService = async (props: {
                     ) {
                         const [data] = await handle(
                             getRepresentation({
+                                resource: dataResource,
                                 method: dataResourceSD.representation?.method,
                                 endpoint: dataResourceSD.representation.url,
                                 credential:
-                                    dataResourceSD.representation?.credential,
+                                dataResourceSD.representation?.credential,
                                 chainId,
                                 nextTargetId,
                                 previousTargetId,
                                 nextNodeResolver,
                                 proxy: dataResourceSD?.representation?.proxy,
                                 mimeType:
-                                    dataResourceSD?.representation?.mimeType,
+                                dataResourceSD?.representation?.mimeType,
+                                representationQueryParams:
+                                dataResourceSD?.representation
+                                    ?.queryParams,
+                                dataExchange
                             })
                         );
 

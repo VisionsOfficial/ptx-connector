@@ -187,11 +187,7 @@ export class SupervisorContainer {
             },
             hostResolver: (targetId: string, meta?: PipelineMeta) => {
                 Logger.info({
-                    message: `Resolving host for ${targetId}, meta: ${JSON.stringify(
-                        meta,
-                        null,
-                        2
-                    )}`,
+                    message: `Resolving host for ${targetId}`,
                 });
                 if (meta?.resolver !== undefined) {
                     return meta.resolver;

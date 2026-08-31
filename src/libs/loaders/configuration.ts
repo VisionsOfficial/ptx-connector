@@ -12,6 +12,7 @@ import { urlChecker } from '../../utils/urlChecker';
 import { handle } from './handler';
 import { config } from '../../config/environment';
 import { checkConnectorProxy } from '../third-party/proxy';
+import { version } from '../../../package.json';
 
 /**
  * Get the configuration file
@@ -138,8 +139,7 @@ const getContractUri = async () => {
  */
 const getRegistrationUri = async () => {
     const conf = await Configuration.findOne({}).lean();
-    if (conf?.consentUri) return conf?.registrationUri;
-    else return getConfigFile()?.registrationUri;
+    return conf?.registrationUri ?? getConfigFile()?.registrationUri;
 };
 
 /**
@@ -156,6 +156,16 @@ const getBillingUri = async () => {
  */
 const getProxy = () => {
     return getConfigFile()?.proxy;
+};
+
+/**
+ * Get the dvct uri
+ * @returns The dvct uri
+ */
+const getDvctUri = async () => {
+    const conf = await Configuration.findOne({}).lean();
+    if (conf?.dvctUri) return conf?.dvctUri;
+    else return getConfigFile()?.dvctUri;
 };
 
 /**
@@ -183,6 +193,14 @@ const getExpressLimitSize = () => {
 };
 
 /**
+ * Get the pdc version
+ * @returns The endpoint
+ */
+const getVersion = async () => {
+    return version;
+};
+
+/**
  * Set up the configuration
  * @returns The configuration
  */
@@ -197,6 +215,7 @@ const setUpConfig = async () => {
         consentUri: await getConsentUri(),
         registrationUri: await getRegistrationUri(),
         billingUri: await getBillingUri(),
+        dvctUri: await getDvctUri(),
     };
 };
 
@@ -396,6 +415,7 @@ const reloadConfigurationFromFile = async () => {
         contractUri: confFile.contractUri,
         consentUri: confFile.consentUri,
         billingUri: confFile.billingUri,
+        dvctUri: confFile.dvctUri,
         consentJWT: '',
     };
 
@@ -420,9 +440,11 @@ export {
     getContractUri,
     getConsentUri,
     getBillingUri,
+    getDvctUri,
     reloadConfigurationFromFile,
     getRegistrationUri,
     getModalOrigins,
     getExpressLimitSize,
+    getVersion,
     getProxy,
 };

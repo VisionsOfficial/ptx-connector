@@ -11,3 +11,10 @@ export const getContract = async (
         configProxy: getProxy()
     })));
 };
+
+export const getContractData = async (
+    contractUri: string
+): Promise<ContractResponseType> => {
+    const response = await axios.get(contractUri);
+    return response.data;
+};

@@ -4,6 +4,7 @@ import { urlChecker } from '../urlChecker';
 import {
     getEndpoint,
     getProxy,
+    getVersion
 } from '../../libs/loaders/configuration';
 import { ObjectId } from 'mongodb';
 import { handle } from '../../libs/loaders/handler';
@@ -50,16 +51,19 @@ export interface IServiceChain {
 interface IDataExchange {
     _id: ObjectId;
     providerEndpoint: string;
+    providerPdcVersion: string;
     resources: [IData];
     purposes: [IData];
     purposeId?: string;
     contract: string;
     consumerEndpoint?: string;
+    consumerPdcVersion?: string;
     consumerDataExchange?: string;
     providerDataExchange?: string;
     status: string;
     consentId?: string;
     createdAt: string;
+    DVCTPassed?: boolean;
     updatedAt?: string;
     error?: {
         message: string;
@@ -79,6 +83,9 @@ interface IDataExchange {
     consumerParams?: IParams;
     serviceChain?: ContractServiceChain;
     serviceChainParams?: [IData];
+    directResponseVisualizationId?: string;
+    callbackUrl?: string;
+    data?: boolean;
     providerProxy?: IProxy;
     consumerProxy?: IProxy;
 
@@ -155,6 +162,8 @@ const schema = new Schema({
     contract: String,
     consumerEndpoint: String,
     providerEndpoint: String,
+    consumerPdcVersion: String,
+    providerPdcVersion: String,
     providerProxy: ProxySchema,
     consumerProxy: ProxySchema,
     consumerDataExchange: String,
@@ -197,6 +206,9 @@ const schema = new Schema({
             },
         ],
     },
+    directResponseVisualizationId: String,
+    callbackUrl: String,
+    data: Boolean,
 });
 
 /**
@@ -212,6 +224,7 @@ schema.methods.createDataExchangeToOtherParticipant = async function (
             consumerEndpoint: await getEndpoint(),
             providerProxy: this.providerProxy,
             consumerProxy: this.consumerProxy,
+            consumerPdcVersion: await getVersion(),
             resources: this.resources,
             purposes: this.purposes,
             purposeId: this.purposeId,
@@ -224,10 +237,14 @@ schema.methods.createDataExchangeToOtherParticipant = async function (
             consumerDataExchange: this._id,
             serviceChain: this.serviceChain,
             providerData: this.providerData,
+            directResponseVisualizationId: this.directResponseVisualizationId,
+            callbackUrl: this.callbackUrl,
+            data: this.data,
         };
     } else {
         data = {
             providerEndpoint: await getEndpoint(),
+            providerPdcVersion: await getVersion(),
             providerProxy: this.providerProxy,
             consumerProxy: this.consumerProxy,
             resources: this.resources,
@@ -242,7 +259,29 @@ schema.methods.createDataExchangeToOtherParticipant = async function (
             providerDataExchange: this._id,
             serviceChain: this.serviceChain,
             providerData: this.providerData,
+            directResponseVisualizationId: this.directResponseVisualizationId,
+            callbackUrl: this.callbackUrl,
+            data: this.data,
         };
+    }
+
+
+    try{
+        const participantPdcSelfDescription = await axios.get(
+            participant === 'provider'
+                ? this.providerEndpoint
+                : this.consumerEndpoint,
+        );
+
+        const participantPdcVersion = participantPdcSelfDescription.data.content["ptx:version"]
+
+        if(participant === 'provider'){
+            this.providerPdcVersion = participantPdcVersion;
+        } else {
+            this.consumerPdcVersion = participantPdcVersion;
+        }
+    } catch (error) {
+        console.error(`Failed to fetch PDC version from ${participant} endpoint:`, error);
     }
 
     const response = await axios.post(
@@ -313,7 +352,6 @@ schema.methods.syncWithInfrastructure = async function (
     if (!this.providerDataExchange) this.providerDataExchange = this._id;
     if (!this.consumerDataExchange) this.consumerDataExchange = this._id;
     if (!this.providerEndpoint) this.providerEndpoint = await getEndpoint();
-    if (!this.consumerEndpoint) this.consumerEndpoint = this._id;
 
     const [response] = await handle(
         axios.post(urlChecker(infrastructureEndpoint, 'dataexchanges'), {
@@ -332,6 +370,9 @@ schema.methods.syncWithInfrastructure = async function (
             providerDataExchange: this.providerDataExchange,
             providerEndpoint: this.providerEndpoint,
             providerData: this.providerData,
+            directResponseVisualizationId: this.directResponseVisualizationId,
+            callbackUrl: this.callbackUrl,
+            data: this.data,
             providerProxy: this.providerProxy,
             consumerProxy: this.consumerProxy,
         })
@@ -365,7 +406,6 @@ schema.methods.updateStatus = async function (
         };
     }
 
-    //TODO proxy
     await axios.put(
         urlChecker(
             this?.consumerEndpoint ?? this?.providerEndpoint,

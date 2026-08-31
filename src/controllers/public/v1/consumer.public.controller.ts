@@ -16,6 +16,8 @@ import { ExchangeError } from '../../../libs/errors/exchangeError';
 import axios from 'axios';
 import { verifyPayloadDefault } from '../../../utils/validation/payloadValidation';
 import { ObjectId } from 'mongodb';
+import {pendingDirectResponseVisualizations} from "../../../libs/loaders/pendingDirectResponseVisualization";
+import {rawResponse} from "../../../libs/api/RAWResponse";
 import { checkConnectorProxy } from '../../../libs/third-party/proxy';
 
 /**
@@ -41,11 +43,39 @@ export const consumerExchange = async (
             purposes,
             serviceChainId,
             serviceChainParams,
+            data,
+            directResponseVisualization,
+            visualizationOnly
         } = req.body;
 
         //Create a data Exchange
         let dataExchange: IDataExchange;
         let providerEndpoint: string;
+        let directResponseVisualizationId: any;
+        let callbackPromise: any;
+
+        const startTime = Date.now();
+        const parsedExchangeTimeout = Number(process.env.EXCHANGE_TIMEOUT);
+        const timeoutSeconds =
+            Number.isFinite(parsedExchangeTimeout) && parsedExchangeTimeout > 0
+                ? parsedExchangeTimeout
+                : 30;
+        const timeout = timeoutSeconds * 1000;
+
+        if(directResponseVisualization) {
+            directResponseVisualizationId = new ObjectId().toString();
+            callbackPromise = new Promise((resolve, reject) => {
+                const timer = setTimeout(() => {
+                    pendingDirectResponseVisualizations.delete(directResponseVisualizationId);
+                    reject(new Error('Timeout reached'));
+                }, timeout);
+
+                pendingDirectResponseVisualizations.set(directResponseVisualizationId, { resolve, reject, timer });
+            });
+            // Prevent unhandled rejection crashes if the promise is never awaited
+            // (e.g. when the connector version check causes the callback path to be skipped)
+            callbackPromise.catch(() => {});
+        }
 
         // ecosystem contract
         if (contract.includes('contracts')) {
@@ -62,6 +92,8 @@ export const consumerExchange = async (
                 consumerParams,
                 serviceChainId,
                 serviceChainParams,
+                directResponseVisualizationId,
+                data
             });
 
             dataExchange = ecosystemDataExchange;
@@ -78,6 +110,8 @@ export const consumerExchange = async (
                 consumerParams,
                 serviceChainId,
                 serviceChainParams,
+                directResponseVisualizationId,
+                data
             });
 
             dataExchange = bilateralDataExchange;
@@ -157,7 +191,8 @@ export const consumerExchange = async (
             );
 
             await ProviderExportService(
-                updatedDataExchange.consumerDataExchange
+                updatedDataExchange.consumerDataExchange,
+                data
             );
         }
         //default protocol and request provider
@@ -185,39 +220,53 @@ export const consumerExchange = async (
             );
         }
 
-        const startTime = Date.now();
-        const timeout =
-            (process.env.EXCHANGE_TIMEOUT
-                ? parseInt(process.env.EXCHANGE_TIMEOUT)
-                : 30) * 1000;
         let message: string;
         let success = false;
+        let callbackData: any;
         // return code 200 everything is ok
-        while (
-            dataExchange.status === 'PENDING' ||
-            dataExchange.status === 'TRANSFER_STARTED'
-        ) {
+        while (dataExchange.status === 'PENDING') {
+            if (
+                directResponseVisualization &&
+                directResponseVisualizationId &&
+                callbackPromise &&
+                (dataExchange.consumerPdcVersion >= "1.11.0" || dataExchange.providerPdcVersion >= "1.11.0")
+            ) {
+                try {
+                    callbackData = await callbackPromise;
+                    dataExchange = await DataExchange.findById(dataExchange._id);
+                } catch (err) {
+                    message = `${timeoutSeconds} sec Timeout directResponseVisualization reached.`;
+                    dataExchange = await DataExchange.findById(dataExchange._id);
+                    break;
+                }
+            } else {
+                if (callbackPromise && directResponseVisualizationId) {
+                    const { timer } = pendingDirectResponseVisualizations.get(directResponseVisualizationId) || {};
+                    if (timer) {
+                        clearTimeout(timer);
+                        pendingDirectResponseVisualizations.delete(directResponseVisualizationId);
+                    }
+                }
+                callbackPromise = null;
+            }
+
             if (Date.now() - startTime > timeout) {
-                message = `${
-                    process.env.EXCHANGE_TIMEOUT
-                        ? parseInt(process.env.EXCHANGE_TIMEOUT)
-                        : 30
-                } sec Timeout reached.`;
+                message = `${timeoutSeconds} sec Timeout reached.`;
                 break;
             }
+
             dataExchange = await DataExchange.findById(dataExchange._id);
-            if (dataExchange.status === 'IMPORT_SUCCESS') {
-                success = true;
-            }
-            await new Promise((resolve) => setTimeout(resolve, 500)); // Add 500ms delay between checks
         }
 
-        //Publisher
-        // amqpPublisher(dataExchange);
-        // kafkaPublisher(dataExchange);
-        // websocketPublisher(dataExchange);
+        if (dataExchange.status === 'IMPORT_SUCCESS') {
+            success = true;
+        }
 
-        return restfulResponse(res, 200, { success, dataExchange, message });
+        if (directResponseVisualizationId && visualizationOnly) {
+            return rawResponse(res, callbackData);
+        }
+
+        return restfulResponse(res, 200, { success, dataExchange, message, directResponseVisualization: callbackData });
     } catch (e) {
         Logger.error({
             message: e.message,
