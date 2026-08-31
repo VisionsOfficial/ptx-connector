@@ -2,7 +2,6 @@ import { connection, Schema } from 'mongoose';
 import axios from 'axios';
 import { urlChecker } from '../urlChecker';
 import {
-    getAmpq,
     getEndpoint,
     getProxy,
 } from '../../libs/loaders/configuration';
@@ -10,7 +9,6 @@ import { ObjectId } from 'mongodb';
 import { handle } from '../../libs/loaders/handler';
 import { ContractServiceChain } from './contractServiceChain';
 import { checkConnectorProxy } from '../../libs/third-party/proxy';
-import amqp from 'amqplib';
 
 interface IData {
     serviceOffering?: string;

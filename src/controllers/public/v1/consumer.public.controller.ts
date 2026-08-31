@@ -16,11 +16,6 @@ import { ExchangeError } from '../../../libs/errors/exchangeError';
 import axios from 'axios';
 import { verifyPayloadDefault } from '../../../utils/validation/payloadValidation';
 import { ObjectId } from 'mongodb';
-import {
-    amqpPublisher,
-    kafkaPublisher,
-    websocketPublisher,
-} from '../../../utils/publisher';
 import { checkConnectorProxy } from '../../../libs/third-party/proxy';
 
 /**
