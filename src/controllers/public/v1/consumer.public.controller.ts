@@ -16,8 +16,8 @@ import { ExchangeError } from '../../../libs/errors/exchangeError';
 import axios from 'axios';
 import { verifyPayloadDefault } from '../../../utils/validation/payloadValidation';
 import { ObjectId } from 'mongodb';
-import {pendingDirectResponseVisualizations} from "../../../libs/loaders/pendingDirectResponseVisualization";
-import {rawResponse} from "../../../libs/api/RAWResponse";
+import { pendingDirectResponseVisualizations } from '../../../libs/loaders/pendingDirectResponseVisualization';
+import { rawResponse } from '../../../libs/api/RAWResponse';
 import { checkConnectorProxy } from '../../../libs/third-party/proxy';
 
 /**
@@ -45,7 +45,7 @@ export const consumerExchange = async (
             serviceChainParams,
             data,
             directResponseVisualization,
-            visualizationOnly
+            visualizationOnly,
         } = req.body;
 
         //Create a data Exchange
@@ -62,15 +62,20 @@ export const consumerExchange = async (
                 : 30;
         const timeout = timeoutSeconds * 1000;
 
-        if(directResponseVisualization) {
+        if (directResponseVisualization) {
             directResponseVisualizationId = new ObjectId().toString();
             callbackPromise = new Promise((resolve, reject) => {
                 const timer = setTimeout(() => {
-                    pendingDirectResponseVisualizations.delete(directResponseVisualizationId);
+                    pendingDirectResponseVisualizations.delete(
+                        directResponseVisualizationId
+                    );
                     reject(new Error('Timeout reached'));
                 }, timeout);
 
-                pendingDirectResponseVisualizations.set(directResponseVisualizationId, { resolve, reject, timer });
+                pendingDirectResponseVisualizations.set(
+                    directResponseVisualizationId,
+                    { resolve, reject, timer }
+                );
             });
             // Prevent unhandled rejection crashes if the promise is never awaited
             // (e.g. when the connector version check causes the callback path to be skipped)
@@ -93,7 +98,7 @@ export const consumerExchange = async (
                 serviceChainId,
                 serviceChainParams,
                 directResponseVisualizationId,
-                data
+                data,
             });
 
             dataExchange = ecosystemDataExchange;
@@ -111,7 +116,7 @@ export const consumerExchange = async (
                 serviceChainId,
                 serviceChainParams,
                 directResponseVisualizationId,
-                data
+                data,
             });
 
             dataExchange = bilateralDataExchange;
@@ -229,22 +234,32 @@ export const consumerExchange = async (
                 directResponseVisualization &&
                 directResponseVisualizationId &&
                 callbackPromise &&
-                (dataExchange.consumerPdcVersion >= "1.11.0" || dataExchange.providerPdcVersion >= "1.11.0")
+                (dataExchange.consumerPdcVersion >= '1.11.0' ||
+                    dataExchange.providerPdcVersion >= '1.11.0')
             ) {
                 try {
                     callbackData = await callbackPromise;
-                    dataExchange = await DataExchange.findById(dataExchange._id);
+                    dataExchange = await DataExchange.findById(
+                        dataExchange._id
+                    );
                 } catch (err) {
                     message = `${timeoutSeconds} sec Timeout directResponseVisualization reached.`;
-                    dataExchange = await DataExchange.findById(dataExchange._id);
+                    dataExchange = await DataExchange.findById(
+                        dataExchange._id
+                    );
                     break;
                 }
             } else {
                 if (callbackPromise && directResponseVisualizationId) {
-                    const { timer } = pendingDirectResponseVisualizations.get(directResponseVisualizationId) || {};
+                    const { timer } =
+                        pendingDirectResponseVisualizations.get(
+                            directResponseVisualizationId
+                        ) || {};
                     if (timer) {
                         clearTimeout(timer);
-                        pendingDirectResponseVisualizations.delete(directResponseVisualizationId);
+                        pendingDirectResponseVisualizations.delete(
+                            directResponseVisualizationId
+                        );
                     }
                 }
                 callbackPromise = null;
@@ -266,7 +281,12 @@ export const consumerExchange = async (
             return rawResponse(res, callbackData);
         }
 
-        return restfulResponse(res, 200, { success, dataExchange, message, directResponseVisualization: callbackData });
+        return restfulResponse(res, 200, {
+            success,
+            dataExchange,
+            message,
+            directResponseVisualization: callbackData,
+        });
     } catch (e) {
         Logger.error({
             message: e.message,

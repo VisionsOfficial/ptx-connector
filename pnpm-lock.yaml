@@ -49,7 +49,7 @@ importers:
         version: 16.4.5
       dpcp-library:
         specifier: github:Prometheus-X-association/data-processing-chain-protocol
-        version: data-processing-chain-protocol@https://codeload.github.com/Prometheus-X-association/data-processing-chain-protocol/tar.gz/d497cd2d56bebf58b57188a99d307160ecfc6b8c
+        version: https://codeload.github.com/Prometheus-X-association/data-processing-chain-protocol/tar.gz/84d309297e1e3752de9c0590a89139466b020ad8
       express:
         specifier: ^4.18.2
         version: 4.19.2
@@ -1542,10 +1542,6 @@ packages:
   damerau-levenshtein@1.0.8:
     resolution: {integrity: sha512-sdQSFB7+llfUcQHUQO3+B8ERRj0Oa4w9POWMI/puGtuf7gFywGmkaLCElnudfTiKZV+NvHqL0ifzdrI8Ro7ESA==}
 
-  data-processing-chain-protocol@https://codeload.github.com/Prometheus-X-association/data-processing-chain-protocol/tar.gz/d497cd2d56bebf58b57188a99d307160ecfc6b8c:
-    resolution: {gitHosted: true, tarball: https://codeload.github.com/Prometheus-X-association/data-processing-chain-protocol/tar.gz/d497cd2d56bebf58b57188a99d307160ecfc6b8c}
-    version: 0.0.0
-
   data-view-buffer@1.0.1:
     resolution: {integrity: sha512-0lht7OugA5x3iJLOWFhWK/5ehONdprk0ISXqVFn/NFrDu+cuc8iADFrGQz5BnRK7LLU3JmkbXSxaqX+/mXYtUA==}
     engines: {node: '>= 0.4'}
@@ -1671,6 +1667,10 @@ packages:
   dotenv@16.4.5:
     resolution: {integrity: sha512-ZmdL2rui+eB2YwhsWzjInR8LldtZHGDoQ1ugH85ppHKwpUHL7j7rN0Ti9NCnGiQbhaZ11FpR+7ao1dNsmduNUg==}
     engines: {node: '>=12'}
+
+  dpcp-library@https://codeload.github.com/Prometheus-X-association/data-processing-chain-protocol/tar.gz/84d309297e1e3752de9c0590a89139466b020ad8:
+    resolution: {gitHosted: true, integrity: sha512-4I7EN05yHeuRIM6qSHi/fT7bv9zUROIcgu+JL3VFbbkHuB3Qv1Cne/T0DB7KbG1sPC8+qkvGVMH0f8KDHL+/Xg==, tarball: https://codeload.github.com/Prometheus-X-association/data-processing-chain-protocol/tar.gz/84d309297e1e3752de9c0590a89139466b020ad8}
+    version: 1.4.2
 
   dunder-proto@1.0.1:
     resolution: {integrity: sha512-KIN/nDJBQRcXw0MLVhZE9iQHmG68qAVIBg9CqmUYjmQIhgij9U5MFvrqkUL5FbtyyzZuOeOt0zdeRe4UY7ct+A==}
@@ -5735,8 +5735,6 @@ snapshots:
 
   damerau-levenshtein@1.0.8: {}
 
-  data-processing-chain-protocol@https://codeload.github.com/Prometheus-X-association/data-processing-chain-protocol/tar.gz/d497cd2d56bebf58b57188a99d307160ecfc6b8c: {}
-
   data-view-buffer@1.0.1:
     dependencies:
       call-bind: 1.0.7
@@ -5864,6 +5862,8 @@ snapshots:
       esutils: 2.0.3
 
   dotenv@16.4.5: {}
+
+  dpcp-library@https://codeload.github.com/Prometheus-X-association/data-processing-chain-protocol/tar.gz/84d309297e1e3752de9c0590a89139466b020ad8: {}
 
   dunder-proto@1.0.1:
     dependencies:
