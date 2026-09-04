@@ -43,11 +43,16 @@ export const DsifNegotiationAgreement = async (
             message: `Negotiation agreement for consumerPid ${consumerPid} received`,
         });
 
-        sendAgreementVerification(
-            callbackAddress || contract.data.callbackAddress,
-            providerPid,
-            consumerPid
-        );
+        try {
+            await sendAgreementVerification(
+                callbackAddress || contract.data.callbackAddress,
+                providerPid,
+                consumerPid
+            );
+        } catch (error) {
+            // eslint-disable-next-line no-console
+            console.error('Failed to send agreement verification', error);
+        }
     } catch (error) {
         next(error);
     }
