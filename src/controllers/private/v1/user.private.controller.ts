@@ -387,7 +387,9 @@ const createConsentUserIdentifier = async (user: IUser, jwt: string) => {
         };
 
         if (user.legalGuardian) {
-            payload.legal_guardian = user.legalGuardian;
+            payload.legalGuardian = user.legalGuardian;
+            payload.firstName = user?.firstName || '';
+            payload.lastName = user?.lastName || '';
             if (selfEndpoint) {
                 payload.callbackUrl = `${selfEndpoint}/webhook/user-identifier`;
             }

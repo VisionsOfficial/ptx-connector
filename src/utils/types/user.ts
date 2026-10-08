@@ -9,6 +9,8 @@ interface IUser {
     userId?: string;
     url?: string;
     legalGuardian?: string;
+    firstName?: string;
+    lastName?: string;
     pendingGuardianship?: boolean;
 }
 
@@ -19,6 +21,8 @@ const schema = new Schema<IUser>({
     consentID: String,
     url: String,
     legalGuardian: String,
+    firstName: String,
+    lastName: String,
     pendingGuardianship: { type: Boolean, default: false },
 });
 
