@@ -35,7 +35,6 @@ export const providerImport = async (
     data: any,
     consumerDataExchange: string
 ) => {
-    //TODO proxy
     const agent = new https.Agent({
         rejectUnauthorized: false,
     });

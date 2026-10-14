@@ -2,7 +2,8 @@ import axios from 'axios';
 import {
     getAppKey,
     getCatalogUri,
-    getEndpoint, getProxy,
+    getEndpoint,
+    getProxy,
     getSecretKey,
     getServiceKey,
 } from '../loaders/configuration';
