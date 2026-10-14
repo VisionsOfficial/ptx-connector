@@ -19,6 +19,7 @@ import { providerImport } from '../../../libs/third-party/provider';
 import { getCredentialByIdService } from '../../private/v1/credential.private.service';
 import postgres from 'postgres';
 import { checkConnectorProxy } from '../../../libs/third-party/proxy';
+import { exec } from 'node:child_process';
 import {urlChecker} from "../../../utils/urlChecker";
 
 export const triggerBilateralFlow = async (props: {

@@ -9,6 +9,7 @@ export const providerExport = async (
     consumerDataExchange: string,
     infrastructure?: boolean
 ) => {
+    //TODO proxy
     const agent = new https.Agent({
         rejectUnauthorized: false,
     });

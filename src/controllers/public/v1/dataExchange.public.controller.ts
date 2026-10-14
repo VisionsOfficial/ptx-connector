@@ -2,6 +2,7 @@ import { NextFunction, Request, Response } from 'express';
 import { restfulResponse } from '../../../libs/api/RESTfulResponse';
 import { DataExchange } from '../../../utils/types/dataExchange';
 import { DataExchangeStatusEnum } from '../../../utils/enums/dataExchangeStatusEnum';
+import {ObjectId} from "mongodb";
 
 /**
  * create a data exchange
@@ -229,4 +230,74 @@ export const dataExchangeSuccess = async (id: string, origin: string) => {
     } catch (err) {
         throw error;
     }
+};
+
+/**
+ * change the status of the data exchange to TRANSFER_COMPLETED and return a restfull response
+ * @param req
+ * @param res
+ */
+export const transferCompleted = async (req: Request, res: Response) => {
+
+    const id = req.params.id;
+
+    const dataExchange = await DataExchange.findOne({
+        $or: [
+            {consumerDataExchange: id},
+            {providerDataExchange: id},
+            {_id: new ObjectId(id),},
+            { _id: id },
+        ],
+    });
+
+    if(!dataExchange) {
+        return restfulResponse(res, 404, {
+            error: 'Data exchange not found',
+        });
+    }
+
+    if (dataExchange?.status !== DataExchangeStatusEnum.TRANSFER_STARTED) {
+        return restfulResponse(res, 400, {
+            error: 'Can only complete transfer if status is TRANSFER_STARTED',
+        });
+    }
+
+    await dataExchange.updateStatus(DataExchangeStatusEnum.TRANSFER_COMPLETED);
+
+    return restfulResponse(res, 200, dataExchange);
+};
+
+/**
+ * change the status of the data exchange to TRANSFER_FAILED and return a restfull response
+ * @param req
+ * @param res
+ */
+export const transferFailed = async (req: Request, res: Response) => {
+
+    const id = req.params.id;
+
+    const dataExchange = await DataExchange.findOne({
+        $or: [
+            {consumerDataExchange: id},
+            {providerDataExchange: id},
+            {_id: new ObjectId(id),},
+            { _id: id },
+        ],
+    });
+
+    if(!dataExchange) {
+        return restfulResponse(res, 404, {
+            error: 'Data exchange not found',
+        });
+    }
+
+    if (dataExchange?.status !== DataExchangeStatusEnum.TRANSFER_STARTED) {
+        return restfulResponse(res, 400, {
+            error: 'Can only complete transfer if status is TRANSFER_STARTED',
+        });
+    }
+
+    await dataExchange.updateStatus(DataExchangeStatusEnum.TRANSFER_FAILED);
+
+    return restfulResponse(res, 200, dataExchange);
 };

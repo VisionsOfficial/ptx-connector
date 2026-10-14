@@ -10,6 +10,7 @@ export const consumerImport = async (
     apiResponseRepresentation?: any,
     mimeType?: string
 ) => {
+    //TODO proxy
     if (!mimeType || mimeType === 'application/json') {
         return axios.post(
             urlChecker(endpoint, 'consumer/import'),
