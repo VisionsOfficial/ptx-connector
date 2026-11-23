@@ -14,8 +14,8 @@ Visit this [repository's wiki](https://github.com/Prometheus-X-association/datas
 docker buildx build \
   -f docker/app/Dockerfile \
   --platform linux/amd64,linux/arm64 \
-  -t ghcr.io/visionsofficial/datasapce-connector:tag \
-  -t ghcr.io/visionsofficial/datasapce-connector:latest \
+  -t ghcr.io/visionsofficial/dataspace-connector:tag \
+  -t ghcr.io/visionsofficial/dataspace-connector:latest \
   --push \
   .
 ```
